@@ -1,4 +1,4 @@
-const Service = require('../Models/ServiceModel')
+const { Service } = require('../Models')
 const  cloudinary  = require('../Utils/cloudinary');
 
 exports.CreateServices = async (req,res,next) => {
@@ -31,7 +31,7 @@ exports.CreateServices = async (req,res,next) => {
 
 exports.getAllServices = async (req,res,next) => {
     try{
-        const service = await Service.find()
+        const service = await Service.findAll()
 
         res.status(200).send({
             success:true,
@@ -53,19 +53,18 @@ exports.updateService = async(req,res,next) => {
             service_description: req.body.service_description,
         }
 
-        if (req.body.service_icon !== '') {
-             
-             if (req.body.service_icon.public_id !== currentService.service_icon.public_id){
-                
-                const ImgId = currentService.service_icon.public_id;
-                
+        if (req.body.service_icon && req.body.service_icon !== '') {
+            if (!currentService.service_icon || req.body.service_icon.public_id !== currentService.service_icon.public_id){
+
+                const ImgId = currentService.service_icon?.public_id;
+
                 if (ImgId) {
                     await cloudinary.uploader.destroy(ImgId);
                 }
-                
+
                 const serviceIcon = await cloudinary.uploader.upload(req.body.service_icon, {
                     upload_preset: "NextService",
-               
+
                 });
                 data.service_icon = {
                     public_id: serviceIcon.public_id,
@@ -78,9 +77,9 @@ exports.updateService = async(req,res,next) => {
                     url: currentService.service_icon.url
                 }
              }
-           
+
         }
-        const updateService = await Service.findByIdAndUpdate(req.params.id, data, { new: true })
+        const updateService = await Service.update(req.params.id, data)
 
         res.status(200).json({
             success: true,

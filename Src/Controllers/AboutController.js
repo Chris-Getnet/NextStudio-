@@ -1,4 +1,4 @@
-const About = require('../Models/AboutModel')
+const { About } = require('../Models')
 const  cloudinary  = require('../Utils/cloudinary');
 
 
@@ -34,7 +34,7 @@ exports.CreateAbout = async (req,res,next) => {
 
 exports.getAbout = async (req,res,next) => {
     try{
-        const about = await About.findById("656ad00b06a98edc10b62338")
+        const about = await About.findById("262ad622-589f-4cb5-886a-6df5982b183e")
         res.status(201).send({
             success: true,
             about
@@ -50,24 +50,23 @@ exports.getAbout = async (req,res,next) => {
 
 exports.updateAbout = async(req,res,next) => {
     try {
-        const currentAbout = await About.findById("656ad00b06a98edc10b62338");
+        const currentAbout = await About.findById("262ad622-589f-4cb5-886a-6df5982b183e");
         const data = {
             about_desc: req.body.about_desc
         }
 
-        if (req.body.intro_image !== '') {
-             
-             if (req.body.intro_image.public_id !== currentAbout.intro_image.public_id){
-                
-                const ImgId = currentAbout.intro_image.public_id;
-            
+        if (req.body.intro_image && req.body.intro_image !== '') {
+            if (!currentAbout.intro_image || req.body.intro_image.public_id !== currentAbout.intro_image.public_id){
+
+                const ImgId = currentAbout.intro_image?.public_id;
+
                 if (ImgId) {
                     await cloudinary.uploader.destroy(ImgId);
                 }
-                
+
                 const newImage = await cloudinary.uploader.upload(req.body.intro_image, {
                     upload_preset: "NextAbout",
-               
+
                 });
                 data.intro_image = {
                     public_id: newImage.public_id,
@@ -80,9 +79,9 @@ exports.updateAbout = async(req,res,next) => {
                     url: currentAbout.intro_image.url
                 }
              }
-           
+
         }
-        const updateAbout = await About.findByIdAndUpdate("656ad00b06a98edc10b62338", data, { new: true })
+        const updateAbout = await About.update("262ad622-589f-4cb5-886a-6df5982b183e", data)
 
         res.status(200).json({
             success: true,

@@ -1,4 +1,4 @@
-const Client = require('../Models/ClientModel')
+const { Client } = require('../Models')
 const cloudinary = require('../Utils/cloudinary')
 
 
@@ -31,7 +31,7 @@ exports.CreateClient = async (req,res,next) => {
 
 exports.getAllClients = async (req,res,next) => {
     try{
-        const client = await Client.find().sort({_id: -1})
+        const client = await Client.findAll()
 
         res.status(200).send({
             success:true,
@@ -56,7 +56,7 @@ exports.deleteClient = async (req, res, next) => {
             await cloudinary.uploader.destroy(imgId);
         }
 
-        const rmProduct = await Client.findByIdAndDelete(req.params.id);
+        await Client.delete(req.params.id);
 
         res.status(201).json({
             success: true,

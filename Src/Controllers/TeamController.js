@@ -1,4 +1,4 @@
-const Team = require('../Models/TeamModel')
+const { Team } = require('../Models')
 const cloudinary = require('../Utils/cloudinary')
 
 exports.createTeam = async (req,res,next) => {
@@ -37,7 +37,7 @@ exports.createTeam = async (req,res,next) => {
 
 exports.getTeam = async (req,res,next) => {
     try{
-        const team = await Team.find()
+        const team = await Team.findAll()
         res.status(201).send({
             status:'success',
             team
@@ -86,7 +86,7 @@ exports.updateTeam = async(req,res,next) => {
              }
            
         }
-        const UpdateTeam = await Team.findByIdAndUpdate(req.params.id, data, { new: true })
+        const UpdateTeam = await Team.update(req.params.id, data)
 
         res.status(200).json({
             success: true,
@@ -110,7 +110,7 @@ exports.deleteTeam = async (req, res, next) => {
             await cloudinary.uploader.destroy(imgId);
         }
 
-        const rmProduct = await Team.findByIdAndDelete(req.params.id);
+        await Team.delete(req.params.id);
 
         res.status(201).json({
             success: true,

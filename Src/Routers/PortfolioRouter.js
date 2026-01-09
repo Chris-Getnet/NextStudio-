@@ -17,6 +17,7 @@ router
 
 router
     .route('/:id')
+    .get(portfolioController.getPortfolioById)
     .patch(protect,portfolioController.updatePortfolios)
     .delete(protect,portfolioController.deletePortfolio)
 

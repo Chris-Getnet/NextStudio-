@@ -1,15 +1,17 @@
-class AboutModel {
+class UserModel {
     constructor(supabase) {
         this.supabase = supabase
     }
 
-    async create(aboutData) {
+    async create(userData) {
         const { data, error } = await this.supabase
-            .from('abouts')
+            .from('users')
             .insert([{
-                intro_image_public_id: aboutData.intro_image?.public_id,
-                intro_image_url: aboutData.intro_image?.url,
-                about_desc: aboutData.about_desc
+                id: userData.id,
+                email: userData.email,
+                full_name: userData.full_name || '',
+                avatar_url: userData.avatar_url || '',
+                role: userData.role || 'user'
             }])
             .select()
 
@@ -17,19 +19,9 @@ class AboutModel {
         return data[0]
     }
 
-    async findAll() {
-        const { data, error } = await this.supabase
-            .from('abouts')
-            .select('*')
-            .order('created_at', { ascending: false })
-
-        if (error) throw error
-        return data
-    }
-
     async findById(id) {
         const { data, error } = await this.supabase
-            .from('abouts')
+            .from('users')
             .select('*')
             .eq('id', id)
             .single()
@@ -38,19 +30,36 @@ class AboutModel {
         return data
     }
 
+    async findByEmail(email) {
+        const { data, error } = await this.supabase
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .single()
+
+        if (error && error.code !== 'PGRST116') throw error
+        return data
+    }
+
+    async findByRole(role) {
+        const { data, error } = await this.supabase
+            .from('users')
+            .select('*')
+            .eq('role', role)
+            .order('created_at', { ascending: false })
+
+        if (error) throw error
+        return data
+    }
+
     async update(id, updateData) {
         const updateObj = {
-            about_desc: updateData.about_desc,
+            ...updateData,
             updated_at: new Date().toISOString()
         }
 
-        if (updateData.intro_image) {
-            updateObj.intro_image_public_id = updateData.intro_image.public_id
-            updateObj.intro_image_url = updateData.intro_image.url
-        }
-
         const { data, error } = await this.supabase
-            .from('abouts')
+            .from('users')
             .update(updateObj)
             .eq('id', id)
             .select()
@@ -61,7 +70,7 @@ class AboutModel {
 
     async delete(id) {
         const { error } = await this.supabase
-            .from('abouts')
+            .from('users')
             .delete()
             .eq('id', id)
 
@@ -70,4 +79,6 @@ class AboutModel {
     }
 }
 
-module.exports = AboutModel
+module.exports = UserModel
+
+

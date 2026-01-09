@@ -1,9 +1,9 @@
-const Portfolio = require('../Models/PortfolioModel')
+const { Portfolio } = require('../Models')
 const cloudinary = require('../Utils/cloudinary')
 
 
 exports.CreatePortfolio = async (req,res,next) => {
-    
+
     try {
         let images = [...req.body.project_image];
         let imagesBuffer = [];
@@ -11,7 +11,7 @@ exports.CreatePortfolio = async (req,res,next) => {
         if (images.length > 5) {
             return res.status(400).json({
                 status: 'fail',
-                messages: 'Maximum allowed number of images is 3.'
+                messages: 'Maximum allowed number of images is 5.'
             });
         }
 
@@ -27,9 +27,21 @@ exports.CreatePortfolio = async (req,res,next) => {
             })
 
         }
-        req.body.project_image = imagesBuffer
-        
-        const portfolio = await Portfolio.create(req.body)
+
+        // Handle videos - now supporting multiple videos
+        let videos = req.body.project_videos || [];
+
+        const portfolioData = {
+            company_name: req.body.company_name,
+            project_name: req.body.project_name,
+            project_category: req.body.project_category,
+            project_description1: req.body.project_description1,
+            project_date: req.body.project_date,
+            project_image: imagesBuffer,
+            project_videos: videos
+        }
+
+        const portfolio = await Portfolio.create(portfolioData)
 
         res.status(201).send({
             success: true,
@@ -47,8 +59,56 @@ exports.getPortfolio = async (req,res,next) => {
     const {page} = req.query;
     try{
         const LIMIT = 6;
-        const startIndex = (Number(page) - 1) * LIMIT
-        const portfolios = await Portfolio.find().sort({_id: -1}).limit(LIMIT).skip(startIndex)
+        const currentPage = Number(page) || 1; // Default to page 1 if not provided
+
+        if (isNaN(currentPage) || currentPage < 1) {
+            return res.status(400).json({
+                status: 'fail',
+                message: 'Invalid page number. Page must be a positive integer.'
+            });
+        }
+
+        const from = (currentPage - 1) * LIMIT;
+
+        // For Supabase, we'll need to implement pagination differently
+        // For now, let's get all and slice
+        const allPortfolios = await Portfolio.findAll();
+        const portfolios = allPortfolios.slice(from, from + LIMIT);
+
+        // Prevent caching to ensure 200 responses
+        res.set({
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        })
+
+        res.status(200).send({
+            status:'success',
+            portfolios,
+            pagination: {
+                currentPage,
+                totalItems: allPortfolios.length,
+                totalPages: Math.ceil(allPortfolios.length / LIMIT),
+                itemsPerPage: LIMIT
+            }
+        })
+
+    }catch (error) {
+        console.log(error);
+        next(error);
+    }
+}
+
+exports.getAllPortfolio = async (req,res,next) => {
+    try{
+        const portfolios = await Portfolio.findAll()
+
+        // Prevent caching to ensure 200 responses
+        res.set({
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        })
 
         res.status(200).send({
             status:'success',
@@ -61,13 +121,27 @@ exports.getPortfolio = async (req,res,next) => {
     }
 }
 
-exports.getAllPortfolio = async (req,res,next) => {
+exports.getPortfolioById = async (req,res,next) => {
     try{
-        const portfolios = await Portfolio.find().sort({_id: -1})
+        const portfolio = await Portfolio.findById(req.params.id)
+
+        if (!portfolio) {
+            return res.status(404).json({
+                status: 'fail',
+                message: 'Portfolio not found'
+            })
+        }
+
+        // Prevent caching to ensure 200 responses
+        res.set({
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        })
 
         res.status(200).send({
             status:'success',
-            portfolios,
+            portfolio,
         })
 
     }catch (error) {
@@ -85,16 +159,17 @@ exports.updatePortfolios = async (req,res,next) => {
             project_category: req.body.project_category,
             project_description1: req.body.project_description1,
             project_date: req.body.project_date,
-            project_video: req.body.project_video,
+            project_videos: req.body.project_videos || currentPortfolio.project_videos,
             project_image: currentPortfolio.project_image
         }
-            const updatePortfolio = await Portfolio.findByIdAndUpdate(req.params.id, data, {new: true})
 
-            res.status(200).json({
-                success: true,
-                updatePortfolio
-            })
-    
+        const updatePortfolio = await Portfolio.update(req.params.id, data)
+
+        res.status(200).json({
+            success: true,
+            updatePortfolio
+        })
+
     }catch(err){
         console.log(err.message);
         next(err);
@@ -110,7 +185,7 @@ exports.deletePortfolio = async (req,res,next) => {
                 await cloudinary.uploader.destroy(imgId);
             }
         }
-        const rmPortfolio = await Portfolio.findByIdAndDelete(req.params.id);
+        await Portfolio.delete(req.params.id);
 
         res.status(201).json({
             success: true,
@@ -128,25 +203,23 @@ exports.deletePortfolio = async (req,res,next) => {
 
 exports.deletePortfolioImage = async (req,res,next) => {
     try{
-        const portfolios = await Portfolio.findOne({_id: req.params.id})
+        const portfolios = await Portfolio.findById(req.params.id)
 
-        for (let i =0; i < portfolios.project_image.length;  i++){
-            if(portfolios.project_image[i].id === req.params.id1){
-                const imgId = portfolios.project_image[i].public_id;
-                if(imgId){
-                    await cloudinary.uploader.destroy(imgId)
-                }
-            }
-        }
-        
         if(portfolios.project_image.length > 1) {
-            
-            const rmImage = await Portfolio.findOneAndUpdate({_id: req.params.id},{$pull:{project_image : {_id: req.params.id1}}})
+            // Find and remove the specific image
+            const imageToDelete = portfolios.project_image.find(img => img.public_id === req.params.id1);
+            if(imageToDelete && imageToDelete.public_id){
+                await cloudinary.uploader.destroy(imageToDelete.public_id)
+            }
+
+            // Remove the image from the array
+            const updatedImages = portfolios.project_image.filter(img => img.public_id !== req.params.id1);
+
+            await Portfolio.update(req.params.id, { project_image: updatedImages })
 
             res.status(201).json({
                 success: true,
                 message: "Portfolio Image Deleted",
-
             })
         }else{
             res.status(404).json({
@@ -186,18 +259,20 @@ exports.addPortfolioImages = async (req,res,next) => {
             })
 
         }
-        req.body.project_image = imagesBuffer
-        // const PortfolioImage = await cloudinary.uploader.upload(project_image,{
-        //     upload_preset: "NextAbout",
-        // })
-        
-        const updatedPortfolio = await Portfolio.findOneAndUpdate({_id: req.params.id},{$push:{project_image : req.body.project_image}})
+
+        // Add new images to existing images
+        const updatedImages = [...portfolio.project_image, ...imagesBuffer];
+
+        const updatedPortfolio = await Portfolio.update(req.params.id, { project_image: updatedImages })
 
         res.status(201).send({
             success: true,
             updatedPortfolio
         })
     }catch(err){
-
+        res.status(404).json({
+            success: false,
+            message: err.message
+        })
     }
 }

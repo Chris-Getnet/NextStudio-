@@ -1,4 +1,4 @@
-const BannerVideo = require('../Models/VideoModel')
+const { Video } = require('../Models')
 const cloudinary = require('../Utils/cloudinary')
 
 exports.CreateVideo = async (req,res,next) => {
@@ -11,7 +11,7 @@ exports.CreateVideo = async (req,res,next) => {
             folder: "NextAbout"
         })
 
-        const BVideo = await BannerVideo.create({
+        const BVideo = await Video.create({
             banner_video:{
                 public_id: video.public_id,
                 url: video.secure_url
@@ -31,12 +31,20 @@ exports.CreateVideo = async (req,res,next) => {
 }
 
 exports.getBannerVideo = async (req,res,next) => {
+    console.log('getBannerVideo endpoint called')
     try{
-        const video = await BannerVideo.findById("65609eb451758a77e142670d")
-        res.status(201).send({
+        const videos = await Video.findAll()
+        if (videos.length === 0) {
+            return res.status(404).json({
+                status:'fail',
+                message: 'No banner video found'
+            })
+        }
+        // Return the first (or most recent) banner video
+        const video = videos[0]
+        res.status(200).send({
             status:'success',
             video
-            
         })
     }catch(err){
         res.status(404).json({
@@ -48,38 +56,42 @@ exports.getBannerVideo = async (req,res,next) => {
 
 exports.UpdateBannerVideo = async (req,res,next) => {
     try {
-        const currentBannerVideo = await BannerVideo.findById('65609eb451758a77e142670d');
+        const videos = await Video.findAll()
+        if (videos.length === 0) {
+            return res.status(404).json({
+                status:'fail',
+                message: 'No banner video found to update'
+            })
+        }
+
+        const currentBannerVideo = videos[0]; // Update the first video
         const data = {}
-        
+
         if (req.body.banner_video !== '') {
-             
-             if (req.body.banner_video.public_id !== currentBannerVideo.banner_video.public_id){
-                
-                const ImgId = currentBannerVideo.banner_video.public_id;
-                
+
+            if (req.body.banner_video.public_id !== currentBannerVideo.banner_video_public_id){
+
+                const ImgId = currentBannerVideo.banner_video_public_id;
+
                 if (ImgId) {
                     await cloudinary.uploader.destroy(ImgId);
                 }
-                
+
                 const newVideo = await cloudinary.uploader.upload(req.body.banner_video, {
                     resource_type: "video",
                     upload_preset: "NextAbout",
-                  }) 
-        
-                data.banner_video = {
-                    public_id: newVideo.public_id,
-                    url: newVideo.secure_url
-                }
+                  })
+
+                data.banner_video_public_id = newVideo.public_id
+                data.banner_video_url = newVideo.secure_url
              }
              else{
-                data.banner_video = {
-                    public_id: currentBannerVideo.banner_video.public_id,
-                    url: currentBannerVideo.banner_video.url
-                }
+                data.banner_video_public_id = currentBannerVideo.banner_video_public_id
+                data.banner_video_url = currentBannerVideo.banner_video_url
              }
-           
+
         }
-        const updateBannerV = await BannerVideo.findByIdAndUpdate("65609eb451758a77e142670d", data, { new: true })
+        const updateBannerV = await Video.update(currentBannerVideo.id, data)
 
         res.status(200).send({
             success: true,

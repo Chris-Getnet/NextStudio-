@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const compression = require('compression')
@@ -14,10 +15,8 @@ const upload = multer({ storage: storage, limits: {
   }, });
 
 
-const Database = require('./Config/database')
+require('./Config/database') // Initialize Supabase connection
 const Router = require('./Routers/index')
-
-Database()
 
 app.use(cors())
 
