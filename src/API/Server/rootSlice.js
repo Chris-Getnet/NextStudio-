@@ -10,6 +10,7 @@ const initialState = {
     teamData:null,
     portfolioData:null,
     portfolioLengthData:null,
+    portfolioPagination:null,
     isLoading: false,
     reloadData: false,
     message: ''
@@ -52,6 +53,9 @@ export const rootSlice = createSlice({
         setPortfolioLengthData: (state,action) => {
             state.portfolioLengthData = action.payload
         },
+        setPortfolioPagination: (state,action) => {
+            state.portfolioPagination = action.payload
+        },
         ReloadData: (state,action) => {
             state.reloadData = action.payload 
         }
@@ -70,6 +74,7 @@ export const {
     setClientData,
     setPortfolioData,
     setPortfolioLengthData,
+    setPortfolioPagination,
     ReloadData
 } = rootSlice.actions
 

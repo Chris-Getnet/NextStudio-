@@ -5,7 +5,6 @@ import { reset } from "../../API/Auth/authSlice"
 import Sidebar from "../Components/Sidebar Components/Sidebar"
 import ScreenError from "./ScreenError"
 import { Tabs } from "antd"
-import TabPane from "antd/es/tabs/TabPane"
 import AdminVideoManagement from "../Components/Admin Home Components/Video Components/AdminVideoManagement"
 import AdminSlogan from "../Components/Admin Home Components/Slogan Components/AdminSlogan"
 import AdminServiceManagement from "../Components/Admin Home Components/Service Components/AdminServiceManagement"
@@ -57,14 +56,18 @@ const AdminHomePage = () => {
                 <Sidebar/>
                 {videoBannerData && quoteData && serviceData && (
                     <div className="flex flex-col w-full px-20 py-10 ml-[260px]">
-                        <Tabs  defaultActiveKey="1">
-                            <TabPane tab='Video Banner' key="1">
-                                <AdminVideoManagement/>    
-                            </TabPane>
-                            <TabPane tab='Services' key="2">
-                                <AdminServiceManagement/>    
-                            </TabPane>
-                        </Tabs>
+                        <Tabs defaultActiveKey="1" items={[
+                            {
+                                key: "1",
+                                label: "Video Banner",
+                                children: <AdminVideoManagement/>
+                            },
+                            {
+                                key: "2",
+                                label: "Services",
+                                children: <AdminServiceManagement/>
+                            }
+                        ]} />
                     </div>   
                 )}
             </div>}

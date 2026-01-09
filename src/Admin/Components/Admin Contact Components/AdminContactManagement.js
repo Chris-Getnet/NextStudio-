@@ -19,7 +19,7 @@ const AdminContactManagement = () => {
                 },
             }
             dispatch(showloading())
-            const responce = await axios.patch(`${URL}/api/NextStudio/contact`,{
+            const responce = await axios.patch(`${URL}/api/NextStudio/contact/`,{
                 ...values
             },config)
             dispatch(hiddenloading())

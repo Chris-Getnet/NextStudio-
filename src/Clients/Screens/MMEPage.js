@@ -195,6 +195,7 @@ const MMEPage = () => {
         <div className="flex w-full s3m:flex-col h-[50vh] s3m:h-[80vh]">
           <div className="w-1/2 s3m:w-full">
             <iframe
+              title="Hyundai Marathon Motors Map"
               className="w-full h-[50vh] vsm:h-[40vh] border-gray-200 border-2"
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d5184.431783389153!2d38.74020571573454!3d8.907538017580583!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x164b830ee23bdbb7%3A0x252c0818572fc324!2sHyundai-Marathon%20Motors!5e0!3m2!1sen!2set!4v1739719025376!5m2!1sen!2set"
               frameborder="0"

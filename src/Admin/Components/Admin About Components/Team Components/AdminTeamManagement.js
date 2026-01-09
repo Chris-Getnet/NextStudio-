@@ -48,7 +48,7 @@ const AdminTeamManagement = () => {
                 },
             }
             dispatch(showloading())
-            const data = await axios.delete(`${URL}/api/NextStudio/team/`+ id,config)
+            const data = await axios.delete(`${URL}/api/NextStudio/team/${id}`,config)
             dispatch(hiddenloading())
             if(data.data.success === true){
                 message.success('Team Deleted Successfuly')
@@ -74,8 +74,13 @@ const AdminTeamManagement = () => {
             }else{
             
             if(selectedItemforEdit){
+                const teamId = selectedItemforEdit._id || selectedItemforEdit.id
+                if (!teamId) {
+                    message.error('Team member ID is missing')
+                    return
+                }
                 dispatch(showloading())
-                const {data} = await axios.patch(`${URL}/api/NextStudio/team/`+ selectedItemforEdit._id,{full_name,work_title,team_image},config)
+                const {data} = await axios.patch(`${URL}/api/NextStudio/team/${teamId}`,{full_name,work_title,team_image},config)
                 if(data.success === true){
                     setShowAddEditModal(false)
                     setFullName('');
@@ -114,14 +119,19 @@ const AdminTeamManagement = () => {
         if(selectedItemforEdit){
             setFullName(selectedItemforEdit.full_name)
             setWorkTitle(selectedItemforEdit.work_title)
-            setTeamImage(selectedItemforEdit.team_image)
-            setPreview(selectedItemforEdit.team_image.url)
+            // Handle new API format with team_image_url or old format with team_image
+            const imageUrl = selectedItemforEdit.team_image_url || 
+                           (typeof selectedItemforEdit.team_image === 'string' 
+                               ? selectedItemforEdit.team_image 
+                               : selectedItemforEdit.team_image?.url);
+            setTeamImage(selectedItemforEdit.team_image_url || selectedItemforEdit.team_image || '')
+            setPreview(imageUrl || null)
         }
         else{
             setFullName('')
             setWorkTitle('')
             setTeamImage('')
-            setPreview('')
+            setPreview(null)
         }
     },[selectedItemforEdit])
 
@@ -137,25 +147,36 @@ const AdminTeamManagement = () => {
                 </div>
                 <hr className="mt-5 mb-5"/>
                 <div className="flex flex-wrap gap-5">
-                    {teamData.map((data) => (
-                        <div className="w-[255px] h-[400px] border-2 rounded mb-5">
-                            <div className="flex flex-col">
-                                <img className="h-[250px] w-full object-cover rounded mb-2" src={data.team_image.url} alt="team"/>
-                                <h1 className="font-semibold uppercase text-center text-xl">{data.full_name}</h1>
-                                <h1 className="text-lg text-center mb-5">{data.work_title}</h1>
+                    {teamData && teamData.length > 0 && teamData.map((data, index) => {
+                        // Handle new API format with team_image_url or old format with team_image
+                        const imageUrl = data.team_image_url || 
+                                       (typeof data.team_image === 'string' 
+                                           ? data.team_image 
+                                           : data.team_image?.url);
+                        const itemId = data.id || data._id;
+                        
+                        return (
+                            <div key={itemId || index} className="w-[255px] h-[400px] border-2 rounded mb-5">
+                                <div className="flex flex-col">
+                                    {imageUrl && (
+                                        <img className="h-[250px] w-full object-cover rounded mb-2" src={imageUrl} alt="team"/>
+                                    )}
+                                    <h1 className="font-semibold uppercase text-center text-xl">{data.full_name}</h1>
+                                    <h1 className="text-lg text-center mb-5">{data.work_title}</h1>
+                                </div>
+                                <div className="flex gap-5 justify-center px-5 ">
+                                    <button className="bg-Secondary text-white w-[100px] py-2 px-5 rounded" onClick={() => {
+                                        setSelectedItemforEdit(data)
+                                        setShowAddEditModal(true)
+                                    }}>Update</button>
+                                    <button onClick={()=> {
+                                        setDeleteId(itemId)
+                                        setShowDeleteModal(true)             
+                                    }} className="bg-red-500 text-white w-[100px] py-2 px-5 rounded">Delete</button>
+                                </div>
                             </div>
-                            <div className="flex gap-5 justify-center px-5 ">
-                                <button className="bg-Secondary text-white w-[100px] py-2 px-5 rounded" onClick={() => {
-                                    setSelectedItemforEdit(data)
-                                    setShowAddEditModal(true)
-                                }}>Update</button>
-                                <button onClick={()=> {
-                                    setDeleteId(data._id)
-                                    setShowDeleteModal(true)             
-                                }} className="bg-red-500 text-white w-[100px] py-2 px-5 rounded">Delete</button>
-                            </div>
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
             </div>
             <Modal visible={showDeleteModal} footer={null} closable={false} centered={true} onCancel={() => {setShowDeleteModal(false); setDeleteId(null)}}>

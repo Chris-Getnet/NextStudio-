@@ -13,12 +13,12 @@ const ChangePassword = () => {
     const dispatch = useDispatch()
 
     const [formData, setFormData] = useState({
-        passwordCurrent: '',
-        password: '',
+        oldPassword: '',
+        newPassword: '',
         confirmPassword: ''
       })
     
-      const {  passwordCurrent, password, confirmPassword } = formData
+      const {  oldPassword, newPassword, confirmPassword } = formData
 
     const oldpasswordvisible = () => {
         if(oldview === false){
@@ -69,29 +69,44 @@ const ChangePassword = () => {
       const onSubmit = (e) => {
         e.preventDefault()
 
-        if(passwordCurrent.length === 0 && password.length === 0 && confirmPassword.length === 0){
+        if(oldPassword.length === 0 && newPassword.length === 0 && confirmPassword.length === 0){
             seterror(true)
+            return
         }
 
-
-
-        if(passwordCurrent && password && confirmPassword){
-
-    
-            if(password === confirmPassword){
-                const userData = {
-                    passwordCurrent,
-                    password
-                }
-
-                dispatch(updatePassword(userData))
-                setFormData({
-                    passwordCurrent: '',
-                    password: '',
-                    confirmPassword:''
-                })
-            }
+        // Validate all fields are filled
+        if(!oldPassword || !newPassword || !confirmPassword){
+            message.error('Please fill in all fields')
+            seterror(true)
+            return
         }
+
+        // Validate old password is not the same as new password
+        if(oldPassword === newPassword){
+            message.error('New password must be different from old password')
+            return
+        }
+
+        // Validate new password matches confirm password
+        if(newPassword !== confirmPassword){
+            message.error('New password and confirm password do not match')
+            return
+        }
+
+        // All validations passed, submit the form
+        const userData = {
+            oldPassword,
+            newPassword,
+            confirmPassword
+        }
+
+        dispatch(updatePassword(userData))
+        setFormData({
+            oldPassword: '',
+            newPassword: '',
+            confirmPassword:''
+        })
+        seterror(false)
       }
 
     return(
@@ -101,18 +116,19 @@ const ChangePassword = () => {
                     <div className="flex flex-col">
                         <label className=" font-semibold">Old Password:</label>
                         <div className="flex justify-end items-center">
-                            <input className="cinput w-[500px]" type={`${oldview === false ? "password" : "text"}`} name="passwordCurrent" value={passwordCurrent} onChange={onChange}  placeholder="old password"/>
+                            <input className="cinput w-[500px]" type={`${oldview === false ? "password" : "text"}`} name="oldPassword" value={oldPassword} onChange={onChange}  placeholder="Old password"/>
                             <i type="button " className=" absolute p-5 mt-2 " onClick={oldpasswordvisible}>{oldview === false ? <FaEyeSlash/> : <FaEye/> }</i>
                         </div>
-                        <span className={`${error && passwordCurrent.length<=0 ? 'text-red-500': 'hidden'}`}>Please enter a current password</span>
+                        <span className={`${error && oldPassword.length<=0 ? 'text-red-500': 'hidden'}`}>Please enter your current password</span>
                     </div>
                     <div className="flex flex-col">
                         <label className=" font-semibold">New Password:</label>
                         <div className="flex justify-end items-center">
-                            <input className="cinput w-[500px]" type={`${newview === false ? "password" : "text"}`} name="password" value={password} onChange={onChange}  placeholder="New Password"/>
+                            <input className="cinput w-[500px]" type={`${newview === false ? "password" : "text"}`} name="newPassword" value={newPassword} onChange={onChange}  placeholder="New Password"/>
                             <i type="button " className=" absolute p-5 mt-2 " onClick={newpasswordvisible}>{newview === false ? <FaEyeSlash/> : <FaEye/> }</i>
                         </div>
-                        <span className={`${error && password.length<=0 ? 'text-red-500': 'hidden'}`}>Please enter a new password</span>
+                        <span className={`${error && newPassword.length<=0 ? 'text-red-500': 'hidden'}`}>Please enter a new password</span>
+                        <span className={`${oldPassword && newPassword && oldPassword === newPassword ? 'text-red-500': 'hidden'}`}>New password must be different from old password</span>
                     </div>
                     <div className="flex flex-col">
                         <label className=" font-semibold">Confirm Password:</label>
@@ -120,8 +136,8 @@ const ChangePassword = () => {
                             <input className="cinput w-[500px]" type={`${confirmview === false ? "password" : "text"}`} name="confirmPassword" value={confirmPassword} onChange={onChange}  placeholder="Confirm Password"/>
                             <i type="button " className=" absolute p-5 mt-2 " onClick={confirmpasswordvisible}>{confirmview === false ? <FaEyeSlash/> : <FaEye/> }</i>
                         </div>
-                        <span className={`${error && confirmPassword.length<=0 ? 'text-red-500': 'hidden'}`}>Please enter a confirm password</span>
-                        <span className={`${password !== confirmPassword ? 'text-red-500': 'hidden'}`}>Password don`t match!</span>
+                        <span className={`${error && confirmPassword.length<=0 ? 'text-red-500': 'hidden'}`}>Please confirm your new password</span>
+                        <span className={`${newPassword && confirmPassword && newPassword !== confirmPassword ? 'text-red-500': 'hidden'}`}>Passwords do not match!</span>
                     </div>
                     <div className="flex justify-end w-full">
                         <button className="bg-Secondary text-white w-[100px] py-2 px-5 rounded">Save</button>

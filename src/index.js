@@ -4,6 +4,7 @@ import './index.css';
 import App from './App';
 import { Provider } from 'react-redux';
 import { store } from './API/store';
+import './API/axiosConfig'; // Initialize axios interceptors for 401 handling
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

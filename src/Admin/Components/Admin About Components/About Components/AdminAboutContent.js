@@ -12,15 +12,32 @@ const AdminAboutContent = () => {
 
     const [preview,setPreview] = useState(null)
     const [intro_image,setIntroImage] = useState('')
+    const [originalImage, setOriginalImage] = useState(null)
+    const [imageChanged, setImageChanged] = useState(false)
     const [about_desc,setAboutDesc] = useState('')
     const dispatch = useDispatch()
     const token = localStorage.getItem('token')
     const editor = useRef(null);
 
     useEffect(() => { 
-        setIntroImage(aboutData.intro_image)
-        setPreview(aboutData.intro_image.url)
-        setAboutDesc(aboutData.about_desc)
+        if (aboutData) {
+            // Handle new API format with intro_image_url or old format with intro_image
+            const imageUrl = aboutData.intro_image_url || 
+                           (typeof aboutData.intro_image === 'string' 
+                               ? aboutData.intro_image 
+                               : aboutData.intro_image?.url);
+            
+            // Store original image data for update logic
+            const originalImageData = aboutData.intro_image_public_id 
+                ? { public_id: aboutData.intro_image_public_id, url: imageUrl }
+                : aboutData.intro_image;
+            
+            setIntroImage(aboutData.intro_image_url || aboutData.intro_image || '')
+            setOriginalImage(originalImageData)
+            setImageChanged(false)
+            setPreview(imageUrl || null)
+            setAboutDesc(aboutData.about_desc || '')
+        }
     },[aboutData])
 
     const handleFileInputChange = (e) => {
@@ -38,6 +55,7 @@ const AdminAboutContent = () => {
             reader.onloadend = () => {
                 setIntroImage(reader.result);
                 setPreview(reader.result)
+                setImageChanged(true)
             };
         }
     }
@@ -51,10 +69,27 @@ const AdminAboutContent = () => {
                 },
             }
             dispatch(showloading())
-            const {data} = await axios.patch(`${URL}/api/NextStudio/about`,{
-                intro_image,
+            
+            // Only send intro_image if a new image was selected
+            // If no new image, send the original Cloudinary object or omit it
+            const payload = {
                 about_desc
-            },config)
+            }
+            
+            // Only include intro_image if it was changed (new base64 image)
+            // or if it's the original Cloudinary object structure
+            if (imageChanged && intro_image) {
+                // New image selected (base64 string)
+                payload.intro_image = intro_image
+            } else if (originalImage && typeof originalImage === 'object' && originalImage.public_id) {
+                // Keep original Cloudinary object if no new image was selected
+                payload.intro_image = originalImage
+            } else if (originalImage && typeof originalImage === 'string') {
+                // Original was a string URL, keep it
+                payload.intro_image = originalImage
+            }
+            
+            const {data} = await axios.patch(`${URL}/api/NextStudio/about/`, payload, config)
             dispatch(hiddenloading())
             if(data.success === true){
                 message.success('About content Updated Successfuly')
@@ -63,7 +98,7 @@ const AdminAboutContent = () => {
             }
         }catch(err){
             dispatch(hiddenloading())
-            message.error(err.message)
+            message.error(err.response?.data?.message || err.message || 'Failed to update about content')
         }
     }
 

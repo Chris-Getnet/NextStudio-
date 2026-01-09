@@ -44,7 +44,7 @@ const AdminClientManagement = () => {
                 },
             }
             dispatch(showloading())
-            const data = await axios.delete(`${URL}/api/NextStudio/client/`+ id,config)
+            const data = await axios.delete(`${URL}/api/NextStudio/client/${id}`,config)
             dispatch(hiddenloading())
             if(data.data.success === true){
                 message.success('Client Deleted Successfuly')
@@ -95,15 +95,26 @@ const AdminClientManagement = () => {
                 </div>
                 <hr className="mt-5 mb-5"/>
                 <div className="flex flex-wrap gap-5">
-                    {clientData.map((data) => (
-                        <div className="flex flex-col w-[300px] h-[190px] border-2 rounded">
-                            <img className=" w-[300px] h-[150px] " src={data.client_image.url} alt="Clients" />
-                            <button onClick={() => {
-                                setDeleteId(data._id)
-                                setShowDeleteModal(true)
-                            }} className="bg-red-500 mt-[2px] text-white w-full p-2">Delete</button>
-                        </div>
-                    ))}
+                    {clientData && clientData.length > 0 && clientData.map((data, index) => {
+                        // Handle new API format with client_image_url or old format with client_image
+                        const imageUrl = data.client_image_url || 
+                                       (typeof data.client_image === 'string' 
+                                           ? data.client_image 
+                                           : data.client_image?.url);
+                        const itemId = data.id || data._id;
+                        
+                        return (
+                            <div key={itemId || index} className="flex flex-col w-[300px] h-[190px] border-2 rounded">
+                                {imageUrl && (
+                                    <img className=" w-[300px] h-[150px] " src={imageUrl} alt="Clients" />
+                                )}
+                                <button onClick={() => {
+                                    setDeleteId(itemId)
+                                    setShowDeleteModal(true)
+                                }} className="bg-red-500 mt-[2px] text-white w-full p-2">Delete</button>
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
             <Modal visible={showAddEditModal}  footer={null} onCancel={() => {setShowAddEditModal(false); setSelectedItemforEdit(null)}}>

@@ -3,9 +3,7 @@ import { useSelector } from "react-redux";
 import Slider from "react-slick";
 import GalleryCard from "./GalleryCard";
 
-const GallerySlider = ({id}) => {
-
-    const { portfolioData } = useSelector((state) => state.root)
+const GallerySlider = ({portfolioData}) => {
     const [width,setWidth] = useState('')
     const [height,setHeight]= useState('')
 
@@ -54,18 +52,13 @@ const GallerySlider = ({id}) => {
 
     return(
         <div>
-            
-                {portfolioData.filter(portfolio => portfolio._id === id).map((data) => (
-                    <Slider {...settings}>
-                        {data.project_image.slice(1,5).map((img,index) => (
-                            <div key={index}>
-                                <GalleryCard pic={img.url} width={width} height={height}/>
-                            </div>
-                        ))}
-                    </Slider>
-                    
+            <Slider {...settings}>
+                {portfolioData.project_image.slice(1,5).map((img,index) => (
+                    <div key={index}>
+                        <GalleryCard pic={img.url} width={width} height={height}/>
+                    </div>
                 ))}
-            
+            </Slider>
         </div>
     )
 }

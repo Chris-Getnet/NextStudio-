@@ -14,8 +14,16 @@ const AdminVideoManagement = () => {
     const dispatch = useDispatch()
     
     useEffect(() => {
-        setBannerVideo(videoBannerData.banner_video)
-       
+        if (videoBannerData) {
+            // Handle both banner_video_url and banner_video properties
+            const videoUrl = videoBannerData.banner_video_url || 
+                           (videoBannerData.banner_video && typeof videoBannerData.banner_video === 'string' 
+                               ? videoBannerData.banner_video 
+                               : videoBannerData.banner_video?.url);
+            if (videoUrl) {
+                setBannerVideo(videoUrl)
+            }
+        }
     },[videoBannerData])
 
     const handleFileInputChange = (e) => {
@@ -44,7 +52,7 @@ const AdminVideoManagement = () => {
                 },
             }
             dispatch(showloading())
-            const {data} = await axios.patch(`${URL}/api/NextStudio/video-banner`,{banner_video},config)
+            const {data} = await axios.patch(`${URL}/api/NextStudio/video-banner/`,{banner_video},config)
                 
                 if(data.success === true){
                     dispatch(showloading())
@@ -62,11 +70,16 @@ const AdminVideoManagement = () => {
 
     return(
         <div className="w-full flex flex-col">
-            <div>
-                <video className="w-full" autoPlay controls muted>
-                    <source src={videoBannerData.banner_video.url} alt="new-video"/>
-                </video>
-            </div>
+            {videoBannerData && (videoBannerData.banner_video_url || videoBannerData.banner_video) && (
+                <div>
+                    <video className="w-full" autoPlay controls muted>
+                        <source src={videoBannerData.banner_video_url || 
+                                   (typeof videoBannerData.banner_video === 'string' 
+                                       ? videoBannerData.banner_video 
+                                       : videoBannerData.banner_video?.url)} alt="new-video"/>
+                    </video>
+                </div>
+            )}
             <form onSubmit={handleSubmit}>
                 <div className="mt-3">
                     <input type="file" className="cinput w-full" accept="image/mp4" onChange={handleFileInputChange}/>

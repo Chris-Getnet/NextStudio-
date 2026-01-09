@@ -4,6 +4,7 @@ import { useState } from "react";
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 import { useEffect } from "react";
+import LoadingPage from "../../Screens/LoadingPage";
 
 const ListService = () => {
 
@@ -26,6 +27,10 @@ const ListService = () => {
         });
       };
 
+    if (!serviceData || !Array.isArray(serviceData)) {
+        return <LoadingPage />;
+    }
+
     return(
         <div data-aos="fade-up"  className="flex flex-wrap justify-center gap-5 items-center mt-10">
            {serviceData.map((service,index) => (
@@ -36,11 +41,11 @@ const ListService = () => {
                         <div className="flex gap-5 justify-between items-center h-[80px]">
 
                             <div className="flex gap-5 items-center">
-                            
+
                                 <div>
-
-                                    <img src={service.service_icon.url} className="h-[80px] " alt="newimage"/>
-
+                                    {service.service_icon && service.service_icon.url && (
+                                        <img src={service.service_icon.url} className="h-[80px] " alt="newimage"/>
+                                    )}
                                 </div>
 
                                 <div>
@@ -56,9 +61,9 @@ const ListService = () => {
 
                         </div>
                         <div>
-                        
+
                         {expandedServices.includes(index) && <div className="h-[150px] vsm2:h-[200px] text-sm text-left font-thin"  dangerouslySetInnerHTML={{__html: service.service_description}}/>}
-                            
+
                         </div>
 
                     </div>

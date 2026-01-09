@@ -19,6 +19,11 @@
     background: #EF5B2C;
     color: #fff;
 }
+.active:hover{
+    background: #6B7280;
+    color: #fff;
+    transition: all 0.5s;
+}
 .icon, .link_text{
     font-size: 15px;
 }

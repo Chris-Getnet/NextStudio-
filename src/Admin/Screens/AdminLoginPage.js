@@ -3,7 +3,7 @@ import { FaEye, FaEyeSlash} from "react-icons/fa";
 import { login, reset } from '../../API/Auth/authSlice'
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { message } from "antd";
+import { message, Spin } from "antd";
 
 const AdminLoginPage = () => {
 
@@ -11,12 +11,12 @@ const AdminLoginPage = () => {
         document.title = "Admin Login - Next Studio"
     })
     const [formData, setFormData] = useState({
-        username: '',
+        email: '',
         password: '',
       })
 
     
-      const { username, password } = formData
+      const { email, password } = formData
     
       const navigate = useNavigate()
       const dispatch = useDispatch()
@@ -31,7 +31,7 @@ const AdminLoginPage = () => {
           }
       }
     
-      const { user, isError, isSuccess, messages } = useSelector(
+      const { user, isError, isSuccess, messages, isLoading } = useSelector(
         (state) => state.auth
       )
     
@@ -59,12 +59,12 @@ const AdminLoginPage = () => {
       const onSubmit = (e) => {
         e.preventDefault()
 
-        if(username.length === 0 && password.length ===0){
+        if(email.length === 0 && password.length ===0){
             seterror(true)
         }
-        if(username && password){
+        if(email && password){
         const userData = {
-          username,
+          email,
           password,
         }
     
@@ -82,17 +82,54 @@ const AdminLoginPage = () => {
                 <form onSubmit={onSubmit}>
                     <div className="flex flex-col gap-5">
                         <div className="flex flex-col">
-                            <input className="cinput w-[297px]" type="text" placeholder="Username" name="username" value={username} onChange={onChange}/>
-                            <span className={`${error && username.length<=0 ? 'text-red-500': 'hidden'}`}>Please enter a username</span>
+                            <input 
+                                className="cinput w-[297px]" 
+                                type="email" 
+                                placeholder="Email" 
+                                name="email" 
+                                value={email} 
+                                onChange={onChange}
+                                disabled={isLoading}
+                            />
+                            <span className={`${error && email.length<=0 ? 'text-red-500': 'hidden'}`}>Please enter an email</span>
                         </div>
                         <div className="flex flex-col">
                             <div className="flex justify-end items-center">
-                                <input className="cinput w-[300px]" type={`${view === false ? "password" : "text"}`} placeholder="Password" value={password} name="password" id="password" onChange={onChange}/>
-                                <i type="button " className=" absolute p-3 mt-2 " onClick={passwordvisible}>{view === false ? <FaEyeSlash/> : <FaEye/> }</i>
+                                <input 
+                                    className="cinput w-[300px]" 
+                                    type={`${view === false ? "password" : "text"}`} 
+                                    placeholder="Password" 
+                                    value={password} 
+                                    name="password" 
+                                    id="password" 
+                                    onChange={onChange}
+                                    disabled={isLoading}
+                                />
+                                <i 
+                                    type="button" 
+                                    className=" absolute p-3 mt-2 " 
+                                    onClick={passwordvisible}
+                                    style={{ pointerEvents: isLoading ? 'none' : 'auto', opacity: isLoading ? 0.5 : 1 }}
+                                >
+                                    {view === false ? <FaEyeSlash/> : <FaEye/> }
+                                </i>
                             </div>
                             <span className={`${error && password.length<=0 ? 'text-red-500': 'hidden'}`}>Please enter a password</span>
                         </div>
-                        <button type="submit" className='cbutton w-[297px]' >Login</button>
+                        <button 
+                            type="submit" 
+                            className='cbutton w-[297px]' 
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <Spin size="small" />
+                                    Logging in...
+                                </span>
+                            ) : (
+                                'Login'
+                            )}
+                        </button>
                     </div>
                 </form>
         </div>

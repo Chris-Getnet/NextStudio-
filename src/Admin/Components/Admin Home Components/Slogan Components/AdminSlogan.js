@@ -28,7 +28,7 @@ const AdminSlogan = () => {
                 },
             }
             dispatch(showloading())
-            const {data} = await axios.patch(`${URL}/api/NextStudio/quote`,{
+            const {data} = await axios.patch(`${URL}/api/NextStudio/quote/`,{
                 quote_text
             },config)
             dispatch(hiddenloading())

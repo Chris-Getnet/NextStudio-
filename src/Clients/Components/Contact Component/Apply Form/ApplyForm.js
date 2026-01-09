@@ -1,10 +1,11 @@
-import { Form, Modal, message } from "antd";
+import { Modal, message } from "antd";
 import axios from "axios";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { ReloadData, hiddenloading, showloading } from "../../../../API/Server/rootSlice";
 import Swal from "sweetalert2";
 import { URL } from "../../../../Url/Url";
+import FileUpload from "../../Common/FileUpload";
 
 const ApplyForm = () => {
   const [showAddEditModal, setShowAddEditModal] = useState(false);
@@ -16,14 +17,10 @@ const ApplyForm = () => {
   const dispatch = useDispatch();
 
   const handleFileInputChange = (e) => {
-    const file = e.target.files[0];
-    transformFile(file);
-  };
-
-  const transformFile = (file) => {
-    const reader = new FileReader();
-    if (file) {
-      reader.readAsDataURL(file);
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      const reader = new FileReader();
+      reader.readAsDataURL(selectedFile);
       reader.onloadend = () => {
         setFile(reader.result);
       };
@@ -81,7 +78,7 @@ const ApplyForm = () => {
         </div>
         <button className="cbutton w-[100px]" onClick={() => { setShowAddEditModal(true) }}>Apply Form</button>
       </div>
-      <Modal visible={showAddEditModal} width="60%" footer={null} onCancel={() => { setShowAddEditModal(false) }}>
+      <Modal visible={showAddEditModal} width="60%" footer={null} onCancel={() => { setShowAddEditModal(false) }} maskClosable={false} keyboard={false}>
         <div className="flex flex-col gap-2 justify-center items-center">
           <br />
           <h1 className="text-2xl font-semibold uppercase">Apply Form</h1>
@@ -106,8 +103,13 @@ const ApplyForm = () => {
               <textarea className="ctextarea w-full" type="text" value={messages} onChange={(e) => setMessages(e.target.value)} placeholder="Message" />
             </div>
             <div>
-              <label>CV:</label>
-              <input className="cinput w-full" type="file" accept=".pdf, .doc, .docx" placeholder="No file selected" onChange={handleFileInputChange} />
+              <label className="block text-sm font-medium text-gray-700 mb-2">CV:</label>
+              <FileUpload
+                accept=".pdf,.doc,.docx"
+                placeholder="Choose your CV or drag it here"
+                onChange={handleFileInputChange}
+                maxSize={5}
+              />
             </div>
             <button className="cbutton w-28" type="submit">Submit</button>
           </div>
