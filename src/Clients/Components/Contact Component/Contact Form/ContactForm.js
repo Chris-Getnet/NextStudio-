@@ -52,12 +52,20 @@ const ContactForm = () => {
       };
     return(
         <div className='mt-16 md:mt-4 flex justify-center items-center'>
-        <div className=" w-[60%] vs2:w-[80%] ">
+        <div className=" w-[60%] vs2:w-[80%] relative">
+            {isLoading && (
+                <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50 rounded">
+                    <div className="flex flex-col items-center gap-3">
+                        <Spin size="large" />
+                        <span className="text-gray-700 font-medium">Submitting...</span>
+                    </div>
+                </div>
+            )}
             <form onSubmit={handleSubmit}>
                 <div className='flex flex-col gap-5'>
-                    <input className='cinput w-full' value={name} onChange={(e) => setName(e.target.value)} name="name" placeholder='Full Name' type="text"/>
-                    <input className='cinput w-full' value={email} onChange={(e) => setEmail(e.target.value)} name="email" type="email" placeholder='Email Address'/>
-                    <textarea className='ctextarea w-full' name="message"  value={messages} onChange={(e) => setMessages(e.target.value)} placeholder='Message' type="text"/>
+                    <input className='cinput w-full' value={name} onChange={(e) => setName(e.target.value)} name="name" placeholder='Full Name' type="text" disabled={isLoading}/>
+                    <input className='cinput w-full' value={email} onChange={(e) => setEmail(e.target.value)} name="email" type="email" placeholder='Email Address' disabled={isLoading}/>
+                    <textarea className='ctextarea w-full' name="message"  value={messages} onChange={(e) => setMessages(e.target.value)} placeholder='Message' type="text" disabled={isLoading}/>
                     <button className='cbutton w-[120px] mb-5' type="submit" disabled={isLoading}>
                         {isLoading ? (
                             <span className="flex items-center justify-center gap-2">
