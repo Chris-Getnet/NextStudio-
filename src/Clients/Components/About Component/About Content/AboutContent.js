@@ -1,8 +1,13 @@
 import { useSelector } from "react-redux";
+import LoadingPage from "../../../Screens/LoadingPage";
 
 const AboutContent = () => {
 
     const { aboutData } = useSelector((state) => state.root)
+
+    if (!aboutData || !aboutData.about_desc) {
+        return <LoadingPage />;
+    }
 
     return(
         <div className=" bg-white flex flex-col w-full p-20 sm:p-10 sm:gap-5 gap-10 -mt-5 ">

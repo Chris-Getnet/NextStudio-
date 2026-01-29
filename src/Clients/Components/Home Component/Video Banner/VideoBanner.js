@@ -15,7 +15,7 @@ const VideoBanner = () => {
 
     if (!videoBannerData || !videoBannerData.banner_video_url) {
         return (
-            <div className="bg-fixed relative">
+            <div className="bg-fixed relative -mt-20">
                 <ImageSkeleton
                     width="w-full"
                     height="h-screen llg:h-[90vh] sm2:h-[70vh] csm:h-[60vh] vs2:h-[50vh] vvsm:h-[40vh]"
@@ -32,7 +32,7 @@ const VideoBanner = () => {
     }
 
     return(
-        <div className="bg-fixed relative">
+        <div className="bg-fixed relative -mt-20">
             <video className="w-full h-screen llg:h-[90vh] object-cover sm2:h-[70vh] csm:h-[60vh] vs2:h-[50vh] vvsm:h-[40vh]" src={videoBannerData.banner_video_url}  autoPlay loop muted={isMuted}/>
             <button
                 className="absolute bottom-4 right-4 text-Primary  p-2 rounded-full"

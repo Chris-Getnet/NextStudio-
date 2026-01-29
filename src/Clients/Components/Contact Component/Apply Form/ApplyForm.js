@@ -1,8 +1,8 @@
-import { Modal, message } from "antd";
+import { Modal, message, Spin } from "antd";
 import axios from "axios";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { ReloadData, hiddenloading, showloading } from "../../../../API/Server/rootSlice";
+import { ReloadData } from "../../../../API/Server/rootSlice";
 import Swal from "sweetalert2";
 import { URL } from "../../../../Url/Url";
 import FileUpload from "../../Common/FileUpload";
@@ -14,23 +14,25 @@ const ApplyForm = () => {
   const [phonenumber, setPhoneNumber] = useState('');
   const [messages, setMessages] = useState('');
   const [file, setFile] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const dispatch = useDispatch();
 
   const handleFileInputChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      const reader = new FileReader();
-      reader.readAsDataURL(selectedFile);
-      reader.onloadend = () => {
-        setFile(reader.result);
-      };
+      setFile(selectedFile);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    dispatch(showloading());
+    if (!file) {
+      message.error('Please select a CV file');
+      return;
+    }
+
+    setIsLoading(true);
 
     const formData = new FormData();
     formData.append('name', name);
@@ -40,14 +42,10 @@ const ApplyForm = () => {
     formData.append('file', file);
 
     try {
-      const { data } = await axios.post(`${URL}/api/NextStudio/contact/apply`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const { data } = await axios.post(`${URL}/api/NextStudio/contact/apply`, formData);
 
       if (data.success === true) {
-        dispatch(hiddenloading());
+        setIsLoading(false);
         Swal.fire({
           position: 'center',
           icon: 'success',
@@ -60,12 +58,19 @@ const ApplyForm = () => {
         setPhoneNumber('');
         setMessages('');
         setFile(null);
+        setShowAddEditModal(false);
         dispatch(ReloadData(true));
       }
     } catch (error) {
       console.error('Error submitting application:', error);
-      dispatch(hiddenloading());
-      message.error('Failed to submit application. Please try again later.');
+      setIsLoading(false);
+      Swal.fire({
+        position: 'center',
+        icon: 'error',
+        title: 'Failed to submit application',
+        text: error.response?.data?.message || error.message || 'Please try again later.',
+        showConfirmButton: true
+      });
     }
   };
 
@@ -78,7 +83,7 @@ const ApplyForm = () => {
         </div>
         <button className="cbutton w-[100px]" onClick={() => { setShowAddEditModal(true) }}>Apply Form</button>
       </div>
-      <Modal visible={showAddEditModal} width="60%" footer={null} onCancel={() => { setShowAddEditModal(false) }} maskClosable={false} keyboard={false}>
+      <Modal open={showAddEditModal} width="60%" footer={null} onCancel={() => { setShowAddEditModal(false) }} maskClosable={false} keyboard={false}>
         <div className="flex flex-col gap-2 justify-center items-center">
           <br />
           <h1 className="text-2xl font-semibold uppercase">Apply Form</h1>
@@ -111,7 +116,16 @@ const ApplyForm = () => {
                 maxSize={5}
               />
             </div>
-            <button className="cbutton w-28" type="submit">Submit</button>
+            <button className="cbutton w-28" type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Spin size="small" />
+                  Submitting...
+                </span>
+              ) : (
+                'Submit'
+              )}
+            </button>
           </div>
         </form>
       </Modal>

@@ -70,7 +70,7 @@ header{
   justify-content: space-between;
   height: 80px;
   padding: 0 2rem;
-  background-color: transparent;
+  background-color: transparent !important;
   z-index: 1;  
 }
 
@@ -113,14 +113,16 @@ header .nav-btn {
     align-items: center;
     justify-content: center;
     gap: 1.5rem;
-    background-color: #EF5B2C;
+    background-color: transparent;
     color: white;
-    transition: 1ms;
+    transition: background-color 0.3s ease, transform 0.3s ease;
     transform: translateY(-100vh);
     
   }
-  header .responsive_bar{
-    transform:none
+  
+  header nav.responsive_bar {
+    background-color: #EF5B2C;
+    transform: none;
   }
   
   nav .nav-close-btn {
