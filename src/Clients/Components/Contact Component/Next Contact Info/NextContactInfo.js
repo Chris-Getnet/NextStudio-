@@ -2,6 +2,7 @@ import { useSelector } from "react-redux";
 import { FaEnvelope, FaMapMarkerAlt, FaPhoneAlt, FaWhatsapp } from 'react-icons/fa';
 import ReactWhatsapp from 'react-whatsapp';
 import { useEffect, useState } from "react";
+import LoadingPage from "../../../Screens/LoadingPage";
 
 const NextContactInfo = () => {
 
@@ -21,6 +22,10 @@ const NextContactInfo = () => {
             
             window.addEventListener('resize',() => {setslide()})
         },[])
+
+    if (!contactData) {
+        return <LoadingPage />;
+    }
 
     return(
         <div className="flex flex-col">

@@ -43,9 +43,16 @@ const ListService = () => {
                             <div className="flex gap-5 items-center">
 
                                 <div>
-                                    {service.service_icon && service.service_icon.url && (
-                                        <img src={service.service_icon.url} className="h-[80px] " alt="newimage"/>
-                                    )}
+                                    {(() => {
+                                        // Handle new API format with service_icon_url or old format with service_icon
+                                        const iconUrl = service.service_icon_url || 
+                                                      (typeof service.service_icon === 'string' 
+                                                          ? service.service_icon 
+                                                          : service.service_icon?.url);
+                                        return iconUrl && (
+                                            <img src={iconUrl} className="h-[80px] " alt="newimage"/>
+                                        );
+                                    })()}
                                 </div>
 
                                 <div>

@@ -1,8 +1,8 @@
-import { Modal, message } from "antd";
+import { Modal, message, Spin } from "antd";
 import axios from "axios";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { ReloadData, hiddenloading, showloading } from "../../../../API/Server/rootSlice";
+import { ReloadData } from "../../../../API/Server/rootSlice";
 import Swal from "sweetalert2";
 import { URL } from "../../../../Url/Url";
 import FileUpload from "../../Common/FileUpload";
@@ -14,23 +14,25 @@ const ApplyForm = () => {
   const [phonenumber, setPhoneNumber] = useState('');
   const [messages, setMessages] = useState('');
   const [file, setFile] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const dispatch = useDispatch();
 
   const handleFileInputChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      const reader = new FileReader();
-      reader.readAsDataURL(selectedFile);
-      reader.onloadend = () => {
-        setFile(reader.result);
-      };
+      setFile(selectedFile);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    dispatch(showloading());
+    if (!file) {
+      message.error('Please select a CV file');
+      return;
+    }
+
+    setIsLoading(true);
 
     const formData = new FormData();
     formData.append('name', name);
@@ -40,14 +42,10 @@ const ApplyForm = () => {
     formData.append('file', file);
 
     try {
-      const { data } = await axios.post(`${URL}/api/NextStudio/contact/apply`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const { data } = await axios.post(`${URL}/api/NextStudio/contact/apply`, formData);
 
       if (data.success === true) {
-        dispatch(hiddenloading());
+        setIsLoading(false);
         Swal.fire({
           position: 'center',
           icon: 'success',
@@ -60,12 +58,19 @@ const ApplyForm = () => {
         setPhoneNumber('');
         setMessages('');
         setFile(null);
+        setShowAddEditModal(false);
         dispatch(ReloadData(true));
       }
     } catch (error) {
       console.error('Error submitting application:', error);
-      dispatch(hiddenloading());
-      message.error('Failed to submit application. Please try again later.');
+      setIsLoading(false);
+      Swal.fire({
+        position: 'center',
+        icon: 'error',
+        title: 'Failed to submit application',
+        text: error.response?.data?.message || error.message || 'Please try again later.',
+        showConfirmButton: true
+      });
     }
   };
 
@@ -78,42 +83,63 @@ const ApplyForm = () => {
         </div>
         <button className="cbutton w-[100px]" onClick={() => { setShowAddEditModal(true) }}>Apply Form</button>
       </div>
-      <Modal visible={showAddEditModal} width="60%" footer={null} onCancel={() => { setShowAddEditModal(false) }} maskClosable={false} keyboard={false}>
-        <div className="flex flex-col gap-2 justify-center items-center">
-          <br />
-          <h1 className="text-2xl font-semibold uppercase">Apply Form</h1>
-          <div className="w-[150px] h-[3px] bg-slate-700 rounded"></div>
-        </div>
-        <form onSubmit={handleSubmit} encType="multipart/form-data">
-          <div className="flex w-full flex-col mt-8 gap-1">
-            <div>
-              <label>Full Name:</label>
-              <input className="cinput w-full" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full Name" />
+      <Modal open={showAddEditModal} width="60%" footer={null} onCancel={() => { !isLoading && setShowAddEditModal(false) }} maskClosable={false} keyboard={false}>
+        <div className="relative">
+          {isLoading && (
+            <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50 rounded">
+              <div className="flex flex-col items-center gap-3">
+                <Spin size="large" />
+                <span className="text-gray-700 font-medium">Submitting...</span>
+              </div>
             </div>
-            <div>
-              <label>Email Address</label>
-              <input className="cinput w-full" type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@example.com" />
-            </div>
-            <div>
-              <label>Phone Number:</label>
-              <input className="cinput w-full" type="number" value={phonenumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="251987654321" />
-            </div>
-            <div>
-              <label>Message:</label>
-              <textarea className="ctextarea w-full" type="text" value={messages} onChange={(e) => setMessages(e.target.value)} placeholder="Message" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">CV:</label>
-              <FileUpload
-                accept=".pdf,.doc,.docx"
-                placeholder="Choose your CV or drag it here"
-                onChange={handleFileInputChange}
-                maxSize={5}
-              />
-            </div>
-            <button className="cbutton w-28" type="submit">Submit</button>
+          )}
+          <div className="flex flex-col gap-2 justify-center items-center">
+            <br />
+            <h1 className="text-2xl font-semibold uppercase">Apply Form</h1>
+            <div className="w-[150px] h-[3px] bg-slate-700 rounded"></div>
           </div>
-        </form>
+          <form onSubmit={handleSubmit} encType="multipart/form-data">
+            <div className="flex w-full flex-col mt-8 gap-1">
+              <div>
+                <label>Full Name:</label>
+                <input className="cinput w-full" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full Name" disabled={isLoading} />
+              </div>
+              <div>
+                <label>Email Address</label>
+                <input className="cinput w-full" type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@example.com" disabled={isLoading} />
+              </div>
+              <div>
+                <label>Phone Number:</label>
+                <input className="cinput w-full" type="number" value={phonenumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="251987654321" disabled={isLoading} />
+              </div>
+              <div>
+                <label>Message:</label>
+                <textarea className="ctextarea w-full" type="text" value={messages} onChange={(e) => setMessages(e.target.value)} placeholder="Message" disabled={isLoading} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">CV:</label>
+                <div style={{ pointerEvents: isLoading ? 'none' : 'auto', opacity: isLoading ? 0.6 : 1 }}>
+                  <FileUpload
+                    accept=".pdf,.doc,.docx"
+                    placeholder="Choose your CV or drag it here"
+                    onChange={handleFileInputChange}
+                    maxSize={5}
+                  />
+                </div>
+              </div>
+              <button className="cbutton w-28" type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Spin size="small" />
+                    Submitting...
+                  </span>
+                ) : (
+                  'Submit'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </Modal>
     </div>
   );
