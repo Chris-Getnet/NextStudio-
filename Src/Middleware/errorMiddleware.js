@@ -16,7 +16,12 @@ const errorHandler = (error, req, res, next) => {
     });
   }
 
-  return res.status(500).send("Something went wrong");
+  // Return proper error message
+  return res.status(500).json({
+    success: false,
+    message: error.message || "Something went wrong",
+    error: process.env.NODE_ENV === 'development' ? error : undefined
+  });
 };
 
 module.exports = errorHandler;

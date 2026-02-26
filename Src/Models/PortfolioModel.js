@@ -147,13 +147,15 @@ class PortfolioModel {
         // Update images if provided
         if (updateData.project_image !== undefined) {
             // Delete existing images
-            await this.supabase
+            const { error: deleteError } = await this.supabase
                 .from('portfolio_images')
                 .delete()
                 .eq('portfolio_id', id)
 
-            // Insert new images
-            if (updateData.project_image.length > 0) {
+            if (deleteError) throw deleteError
+
+            // Insert new images (even if empty array, this ensures images are cleared)
+            if (updateData.project_image && updateData.project_image.length > 0) {
                 const imageInserts = updateData.project_image.map(img => ({
                     portfolio_id: id,
                     public_id: img.public_id,
