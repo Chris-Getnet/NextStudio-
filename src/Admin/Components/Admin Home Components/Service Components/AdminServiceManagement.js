@@ -1,7 +1,7 @@
 import axios from "axios"
 import { useEffect, useRef, useState } from "react"
 import { useDispatch, useSelector } from "react-redux"
-import { ReloadData, hiddenloading, showloading } from "../../../../API/Server/rootSlice"
+import { ReloadData, hiddenloading, showloading, setServiceData } from "../../../../API/Server/rootSlice"
 import { Modal, message, Spin } from "antd"
 import JoditEditor from "jodit-react";
 import {URL} from '../../../../Url/Url'
@@ -20,6 +20,16 @@ const AdminServiceManagement = () => {
     const editor = useRef(null);
     const token = localStorage.getItem('token')
     const dispatch = useDispatch()
+
+    // Function to fetch latest service data
+    const fetchServiceData = async () => {
+        try {
+            const response = await axios.get(`${URL}/api/NextStudio/service`)
+            dispatch(setServiceData(response.data.service))
+        } catch (error) {
+            console.error('Error fetching service data:', error)
+        }
+    }
 
     const handleFileInputChange = (e) => {
         const file = e.target.files[0]
@@ -73,7 +83,8 @@ const AdminServiceManagement = () => {
                 setPreview(null)
                 setSelectedItemforEdit(null)
                 message.success('Service Updated Successfully')
-                dispatch(ReloadData(true))
+                // Fetch latest data
+                await fetchServiceData()
             }
         }catch(err){
             message.error(err.response?.data?.message || err.message || 'Failed to update service')

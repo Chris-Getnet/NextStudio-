@@ -19,19 +19,26 @@ const AdminPortfolioManagement = () => {
     const page = useMemo(() => (pageParam ? Number(pageParam) : 1), [pageParam])
     const isFetchingRef = useRef(false)
     const lastPageRef = useRef(null)
-    const previousReloadDataRef = useRef(reloadData)
+    const previousReloadDataRef = useRef(false)
+    const hasInitializedRef = useRef(false)
 
     // Fetch function
-    const fetchPortfolioData = useCallback(async (pageNum) => {
+    const fetchPortfolioData = useCallback(async (pageNum, skipLoading = false, updatePageRef = true) => {
         if (isFetchingRef.current) {
             return
         }
         
         isFetchingRef.current = true
-        lastPageRef.current = pageNum
+        if (updatePageRef) {
+            lastPageRef.current = pageNum
+        }
+        
+        // Use local loading state instead of global to avoid blocking the entire component
+        if (!skipLoading) {
+            setIsLoadingPortfolio(true)
+        }
         
         try {
-            dispatch(showloading())
             const response = await axios.get(`${URL}/api/NextStudio/portfolio?page=${pageNum}`, {
                 validateStatus: function (status) {
                     return (status >= 200 && status < 300) || status === 304;
@@ -41,23 +48,22 @@ const AdminPortfolioManagement = () => {
             const responseData = response.data?.portfolios || response.data?.portfolio || []
             const paginationData = response.data?.pagination || null
             
-            if (responseData.length > 0 || response.status === 304) {
-                dispatch(setPortfolioData(responseData))
-            }
+            // Always update the data, even if empty, so UI reflects current state
+            dispatch(setPortfolioData(responseData))
             
             // Store pagination data if available
             if (paginationData) {
                 dispatch(setPortfolioPagination(paginationData))
             }
-            
-            dispatch(hiddenloading())
         } catch (error) {
-            dispatch(hiddenloading())
             if (error.response?.status !== 304) {
                 message.error(error.response?.data?.message || 'Failed to fetch portfolio data')
             }
         } finally {
             isFetchingRef.current = false
+            if (!skipLoading) {
+                setIsLoadingPortfolio(false)
+            }
         }
     }, [dispatch])
 
@@ -70,7 +76,7 @@ const AdminPortfolioManagement = () => {
 
         const pageChanged = lastPageRef.current !== page && lastPageRef.current !== null
         const reloadDataJustBecameTrue = reloadData && !previousReloadDataRef.current
-        const isInitialLoad = lastPageRef.current === null
+        const isInitialLoad = !hasInitializedRef.current
         
         // Only fetch if:
         // 1. Initial load (first time)
@@ -80,21 +86,24 @@ const AdminPortfolioManagement = () => {
             // Update refs BEFORE fetching to prevent duplicate calls
             if (isInitialLoad || pageChanged) {
                 lastPageRef.current = page
+                hasInitializedRef.current = true
             }
             if (reloadDataJustBecameTrue) {
                 previousReloadDataRef.current = true
             }
             
             // Fetch data
-            fetchPortfolioData(page).then(() => {
+            fetchPortfolioData(page, false, true).then(() => {
                 // Only reset reloadData if it was the trigger
                 if (reloadDataJustBecameTrue) {
                     dispatch(ReloadData(false))
                     previousReloadDataRef.current = false
                 }
             })
-        } else if (!reloadData) {
-            // Reset ref when reloadData becomes false (but don't fetch)
+        }
+        
+        // Update previousReloadDataRef to track current state
+        if (!reloadData && previousReloadDataRef.current) {
             previousReloadDataRef.current = false
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,19 +125,23 @@ const AdminPortfolioManagement = () => {
     const [isSubmittingPortfolio, setIsSubmittingPortfolio] = useState(false)
     const [isDeletingPortfolio, setIsDeletingPortfolio] = useState(false)
     const [isAddingImage, setIsAddingImage] = useState(false)
+    const [isLoadingPortfolio, setIsLoadingPortfolio] = useState(false)
     const token = localStorage.getItem('token')
-    const editor = useRef(null); 
+    const editor = useRef(null);
+    const fileInputRef = useRef(null);
+    const newFileInputRef = useRef(null); 
 
     useEffect(() => {
         if(selectedItemforEdit){
             setCompanyName(selectedItemforEdit.company_name)
             setProjectName(selectedItemforEdit.project_name)
             setProjectCategory(selectedItemforEdit.project_category)
-            // Handle both array and string formats for videos
-            if(Array.isArray(selectedItemforEdit.project_video)){
-                setProjectVideos(selectedItemforEdit.project_video)
-            } else if(selectedItemforEdit.project_video){
-                setProjectVideos([selectedItemforEdit.project_video])
+            // Handle both project_videos (plural) and project_video (singular) for backward compatibility
+            const videos = selectedItemforEdit.project_videos || selectedItemforEdit.project_video
+            if(Array.isArray(videos) && videos.length > 0){
+                setProjectVideos(videos)
+            } else if(videos && typeof videos === 'string'){
+                setProjectVideos([videos])
             } else {
                 setProjectVideos([''])
             }
@@ -149,6 +162,26 @@ const AdminPortfolioManagement = () => {
         }
     },[selectedItemforEdit])
 
+    // Update preview when portfolioData changes and we're editing the same item
+    useEffect(() => {
+        if (selectedItemforEdit && portfolioData) {
+            const portfolioId = selectedItemforEdit._id || selectedItemforEdit.id
+            const updatedPortfolio = portfolioData.find(p => 
+                (p._id || p.id) === portfolioId
+            )
+            if (updatedPortfolio && updatedPortfolio.project_image) {
+                // Only update if the images have actually changed
+                const currentImageIds = preview.map(img => img.public_id || img._id || img.id).filter(Boolean)
+                const newImageIds = updatedPortfolio.project_image.map(img => img.public_id || img._id || img.id).filter(Boolean)
+                if (JSON.stringify(currentImageIds.sort()) !== JSON.stringify(newImageIds.sort())) {
+                    setPreview(updatedPortfolio.project_image)
+                    setProjectImage(updatedPortfolio.project_image)
+                }
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [portfolioData])
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmittingPortfolio(true)
@@ -160,6 +193,19 @@ const AdminPortfolioManagement = () => {
             }
             // Filter out empty video URLs
             const filteredVideos = project_videos.filter(video => video.trim() !== '')
+            
+            // Separate existing images (objects) from new images (base64 strings)
+            // For updates, only send new images (base64 strings) - existing images are already on server
+            // For adds, send all images as base64 strings
+            let imagesToSend = []
+            if(selectedItemforEdit){
+                // For update: only send new images (base64 strings), not existing ones (objects)
+                imagesToSend = project_image.filter(img => typeof img === 'string' && img.startsWith('data:'))
+            } else {
+                // For add: send all images as base64 strings
+                imagesToSend = project_image.filter(img => typeof img === 'string' && img.startsWith('data:'))
+            }
+            
             if(selectedItemforEdit){
                 const portfolioId = selectedItemforEdit._id || selectedItemforEdit.id
                 if (!portfolioId) {
@@ -168,7 +214,7 @@ const AdminPortfolioManagement = () => {
                     return
                 }
                 const {data} = await axios.patch(`${URL}/api/NextStudio/portfolio/${portfolioId}`,{
-                    project_name,project_category,project_description1,project_date,project_image,project_video: filteredVideos,company_name
+                    project_name,project_category,project_description1,project_date,project_image: imagesToSend,project_video: filteredVideos,company_name
                 },config)
                 if(data.success === true){
                     setShowAddEditModal(false)
@@ -181,11 +227,12 @@ const AdminPortfolioManagement = () => {
                     setProjectVideos([''])
                     setPreview([])
                     message.success('Portfolio Updated Successfully')
-                    dispatch(ReloadData(true))
+                    // Fetch latest data (skip loading indicator and don't update page ref to avoid triggering useEffect)
+                    await fetchPortfolioData(page, true, false)
                 }
             }else{
                 const {data} = await axios.post(`${URL}/api/NextStudio/portfolio`,{
-                    project_name,project_category,project_description1,project_date,project_image,project_video: filteredVideos,company_name
+                    project_name,project_category,project_description1,project_date,project_image: imagesToSend,project_video: filteredVideos,company_name
                 },config)
                 if(data.success === true){
                     setShowAddEditModal(false)
@@ -198,7 +245,8 @@ const AdminPortfolioManagement = () => {
                     setProjectVideos([''])
                     setPreview([])
                     message.success('Portfolio Added Successfully')
-                    dispatch(ReloadData(true))
+                    // Fetch latest data (skip loading indicator and don't update page ref to avoid triggering useEffect)
+                    await fetchPortfolioData(page, true, false)
                 }
             }
         }catch(err){
@@ -210,16 +258,34 @@ const AdminPortfolioManagement = () => {
 
     const handleImageChange = (e) => {
         const files = e.target.files;
-        const imagesArray = [];
+        if (!files || files.length === 0) return;
+        
+        const newImages = [];
+        let loadedCount = 0;
+        const inputElement = e.target;
     
         for (let i = 0; i < files.length; i++) {
           const reader = new FileReader();
+          const fileIndex = i;
           // eslint-disable-next-line no-loop-func
           reader.onload = () => {
             if (reader.readyState === 2) {
-              imagesArray.push(reader.result);
-              setProjectImage(imagesArray);
-              setPreview(imagesArray)
+              newImages[fileIndex] = reader.result;
+              loadedCount++;
+              
+              // Update state when all images are loaded
+              if (loadedCount === files.length) {
+                // For add mode, append to existing preview if any
+                setProjectImage(prev => [...prev, ...newImages]);
+                setPreview(prev => [...prev, ...newImages]);
+                // Reset file input to clear the filename display
+                if (inputElement) {
+                  inputElement.value = '';
+                }
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                }
+              }
             }
           };
     
@@ -229,16 +295,34 @@ const AdminPortfolioManagement = () => {
     
       const handleNewImageInput = (e) => {
         const files = e.target.files;
-        const imagesArray = [];
+        if (!files || files.length === 0) return;
+        
+        const newImages = [];
+        let loadedCount = 0;
+        const inputElement = e.target;
     
         for (let i = 0; i < files.length; i++) {
           const reader = new FileReader();
+          const fileIndex = i;
           // eslint-disable-next-line no-loop-func
           reader.onload = () => {
             if (reader.readyState === 2) {
-              imagesArray.push(reader.result);
-              setProjectImage(imagesArray);
-              setNewPreview(imagesArray)
+              newImages[fileIndex] = reader.result;
+              loadedCount++;
+              
+              // Update state when all images are loaded
+              if (loadedCount === files.length) {
+                // For update mode, append to existing newPreview
+                setProjectImage(prev => [...prev, ...newImages]);
+                setNewPreview(prev => [...prev, ...newImages]);
+                // Reset file input to clear the filename display
+                if (inputElement) {
+                  inputElement.value = '';
+                }
+                if (newFileInputRef.current) {
+                  newFileInputRef.current.value = '';
+                }
+              }
             }
           };
     
@@ -248,6 +332,11 @@ const AdminPortfolioManagement = () => {
 
 
       const handleImageDelete = async (id) => {
+        if (!id) {
+            message.error('Image ID is missing')
+            return
+        }
+        
         try{
             const config = {
                 headers: {
@@ -259,17 +348,31 @@ const AdminPortfolioManagement = () => {
                 message.error('Portfolio ID is missing')
                 return
             }
-            dispatch(showloading())
-            const data = await axios.delete(`${URL}/api/NextStudio/portfolio/${portfolioId}/${id}`,config)
-            dispatch(hiddenloading())
-            if(data.data.success === true)
-                setShowAddEditModal(false)
-                message.success('Portfolio Delete Successfuly')
-                dispatch(hiddenloading())
-                dispatch(ReloadData(true))
+            // Use query parameter approach to handle public_ids with slashes
+            // axios automatically URL-encodes query parameters
+            const data = await axios.delete(`${URL}/api/NextStudio/portfolio/image/${portfolioId}`, {
+                ...config,
+                params: {
+                    publicId: id
+                }
+            })
+            if(data.data.success === true){
+                message.success('Portfolio Image Deleted Successfully')
+                // Immediately remove the image from preview (optimistic update)
+                setPreview(prev => prev.filter(img => {
+                    const imgId = img.public_id || img._id || img.id
+                    return imgId !== id
+                }))
+                setProjectImage(prev => prev.filter(img => {
+                    const imgId = img.public_id || img._id || img.id
+                    return imgId !== id
+                }))
+                // Fetch latest data to sync with server
+                await fetchPortfolioData(page, true, false)
+            }
 
         }catch(err){
-            message.error(err.message)
+            message.error(err.response?.data?.message || err.message || 'Failed to delete image')
         }
     }
 
@@ -293,10 +396,13 @@ const AdminPortfolioManagement = () => {
                     project_image
                 },config)
                 if(data.success === true){
-                    setProjectImage([])
+                    // Clear the new preview arrays (base64 previews)
                     setNewPreview([])
+                    // Clear only the new images from project_image (keep existing ones)
+                    setProjectImage(prev => prev.filter(img => typeof img !== 'string' || !img.startsWith('data:')))
                     message.success('Portfolio Image Added Successfully')
-                    dispatch(ReloadData(true))
+                    // Fetch latest data to update preview with newly uploaded images
+                    await fetchPortfolioData(page, true, false)
                 }
             }
         }catch(err){
@@ -320,7 +426,8 @@ const AdminPortfolioManagement = () => {
             const data = await axios.delete(`${URL}/api/NextStudio/portfolio/${id}`,config)
             if(data.data.success === true){
                 message.success('Portfolio Deleted Successfully')
-                dispatch(ReloadData(true))
+                // Fetch latest data (skip loading indicator and don't update page ref to avoid triggering useEffect)
+                await fetchPortfolioData(page, true, false)
                 // Close modal only after successful deletion
                 setShowDeleteModal(false)
                 setDeleteId(null)
@@ -343,6 +450,11 @@ const AdminPortfolioManagement = () => {
                     }}>Add Work</button>
                 </div>
                 <hr className="mt-5 mb-5"/>
+                {isLoadingPortfolio ? (
+                    <div className="flex justify-center items-center h-[400px]">
+                        <Spin size="large" />
+                    </div>
+                ) : (
                 <div className="flex flex-wrap justify-center items-center gap-5">
                     {portfolioData && portfolioData.length > 0 ? portfolioData.map((data, index) => {
                         // Handle project_image - could be array or object
@@ -378,6 +490,7 @@ const AdminPortfolioManagement = () => {
                         </div>
                     )}
                 </div>
+                )}
                 <div className="flex justify-center mt-5 ">
                        <Pagination page={page}/>
                 </div>
@@ -460,7 +573,14 @@ const AdminPortfolioManagement = () => {
                     onChange={newContent => setProjectDescription1(newContent)}     
                 />
                 <label className={selectedItemforEdit ? 'hidden' :'font-bold mt-5 mb-3'}>Project Images</label>
-                <input className={selectedItemforEdit ? 'hidden' :'cinput w-full'} type="file" multiple onChange={handleImageChange}/>
+                <input 
+                    ref={fileInputRef}
+                    className={selectedItemforEdit ? 'hidden' :'cinput w-full'} 
+                    type="file" 
+                    multiple 
+                    accept="image/*"
+                    onChange={handleImageChange}
+                />
                 <div className="flex justify-end mt-3 gap-5 w-full">
                         <button 
                             type="submit" 
@@ -479,27 +599,80 @@ const AdminPortfolioManagement = () => {
                 </div>
                 </div>
             </form>
+            {/* Show existing images (for edit mode) and newly selected images (for add mode) */}
             <div className="flex flex-wrap gap-5 mt-5 justify-center items-center">
-                    {preview.map((data, index) => (
-                        <div key={data._id || data.url || index} className=" w-[200px] object-contain">
-                            <img className="h-[135px] object-cover" src={selectedItemforEdit ? data.url : data} alt="pic"/>
-                            <button className={selectedItemforEdit ? 'text-red-500 ml-[180px] -mt-[130px] absolute z-10' : 'hidden'} onClick={() => {
-                                handleImageDelete(data._id)
-                            }}><FaTrash/></button>
-                        </div>
-                    ))}
+                    {preview.map((data, index) => {
+                        // Check if this is a new image (base64 string) or existing image (object with url/public_id)
+                        const isNewImage = typeof data === 'string' && data.startsWith('data:')
+                        const imageId = isNewImage ? null : (data.public_id || data._id || data.id)
+                        const imageUrl = isNewImage ? data : (data.url || data)
+                        
+                        return (
+                            <div key={imageId || imageUrl || index} className="relative w-[200px] object-contain">
+                                <img className="h-[135px] w-full object-cover" src={imageUrl} alt="pic"/>
+                                {/* Show delete button only for existing images in edit mode */}
+                                {selectedItemforEdit && imageId && (
+                                    <button 
+                                        className="text-red-500 ml-[180px] -mt-[130px] absolute z-10 hover:text-red-700" 
+                                        onClick={() => handleImageDelete(imageId)}
+                                        type="button"
+                                    >
+                                        <FaTrash/>
+                                    </button>
+                                )}
+                                {/* Show remove button for newly added images in add mode */}
+                                {!selectedItemforEdit && isNewImage && (
+                                    <button 
+                                        className="text-red-500 ml-[180px] -mt-[130px] absolute z-10 hover:text-red-700" 
+                                        onClick={() => {
+                                            const newPreviewList = preview.filter((_, i) => i !== index)
+                                            const newProjectImageList = project_image.filter((_, i) => i !== index)
+                                            setPreview(newPreviewList)
+                                            setProjectImage(newProjectImageList)
+                                        }}
+                                        type="button"
+                                    >
+                                        <FaTrash/>
+                                    </button>
+                                )}
+                            </div>
+                        )
+                    })}
             </div>
-            <div className={selectedItemforEdit ? "flex flex-wrap gap-5 mt-5 justify-center items-center" : "hidden"}>
+            {/* Show newly added images for update mode (separate from existing images) */}
+            {selectedItemforEdit && newPreview.length > 0 && (
+                <div className="flex flex-wrap gap-5 mt-5 justify-center items-center">
+                    <label className="w-full font-bold">New Images (will be added after update):</label>
                     {newPreview.map((data, index) => (
-                        <div key={index} className=" w-[200px] object-contain">
-                            <img className="h-[135px] object-cover" src={data} alt="pic"/>
+                        <div key={index} className="relative w-[200px] object-contain">
+                            <img className="h-[135px] w-full object-cover" src={data} alt="pic"/>
+                            <button 
+                                className="text-red-500 ml-[180px] -mt-[130px] absolute z-10 hover:text-red-700" 
+                                onClick={() => {
+                                    const newPreviewList = newPreview.filter((_, i) => i !== index)
+                                    const newProjectImage = project_image.filter((_, i) => i !== (preview.length + index))
+                                    setNewPreview(newPreviewList)
+                                    setProjectImage(newProjectImage)
+                                }}
+                                type="button"
+                            >
+                                <FaTrash/>
+                            </button>
                         </div>
                     ))}
-            </div>
+                </div>
+            )}
             <div className={selectedItemforEdit ? 'flex flex-col gap-2' : 'hidden'}>
                 <form onSubmit={handleNewImages}>
                     <label className='font-bold mt-10 mb-3'>Project Images</label>
-                    <input className='cinput w-full' type="file" multiple onChange={selectedItemforEdit ? handleNewImageInput : handleImageChange}/>
+                    <input 
+                        ref={newFileInputRef}
+                        className='cinput w-full' 
+                        type="file" 
+                        multiple 
+                        accept="image/*"
+                        onChange={selectedItemforEdit ? handleNewImageInput : handleImageChange}
+                    />
                     <div className="flex justify-end mt-3 gap-5 w-full">
                         <button 
                             type="submit" 

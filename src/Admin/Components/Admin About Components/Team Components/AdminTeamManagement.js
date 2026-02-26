@@ -4,7 +4,7 @@ import { Form, message, Modal, Spin } from "antd";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { hiddenloading , ReloadData, showloading } from "../../../../API/Server/rootSlice";
+import { hiddenloading , ReloadData, showloading, setTeamData } from "../../../../API/Server/rootSlice";
 import {URL} from '../../../../Url/Url'
 
 const AdminTeamManagement = () => {
@@ -26,6 +26,16 @@ const AdminTeamManagement = () => {
     
 
     const token = localStorage.getItem('token')
+
+    // Function to fetch latest team data
+    const fetchTeamData = async () => {
+        try {
+            const response = await axios.get(`${URL}/api/NextStudio/team`)
+            dispatch(setTeamData(response.data.team))
+        } catch (error) {
+            console.error('Error fetching team data:', error)
+        }
+    }
 
     const handleFileInputChange = (e) => {
         const file = e.target.files[0]
@@ -53,9 +63,10 @@ const AdminTeamManagement = () => {
                 },
             }
             const data = await axios.delete(`${URL}/api/NextStudio/team/${id}`,config)
-            if(data.data.success === true){
+                if(data.data.success === true){
                 message.success('Team Deleted Successfully')
-                dispatch(ReloadData(true))
+                // Fetch latest data
+                await fetchTeamData()
                 // Close modal only after successful deletion
                 setShowDeleteModal(false)
                 setDeleteId(null)
@@ -99,7 +110,8 @@ const AdminTeamManagement = () => {
                     setPreview(null)
                     setSelectedItemforEdit(null)
                     message.success('Team updated successfully')
-                    dispatch(ReloadData(true))
+                    // Fetch latest data
+                    await fetchTeamData()
                 }
             }
             else{
@@ -112,7 +124,8 @@ const AdminTeamManagement = () => {
                     setTeamImage('');
                     setPreview(null)
                     message.success('Team created successfully')
-                    dispatch(ReloadData(true))
+                    // Fetch latest data
+                    await fetchTeamData()
                 }
             }
         }catch(err){

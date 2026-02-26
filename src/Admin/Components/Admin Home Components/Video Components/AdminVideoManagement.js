@@ -3,7 +3,7 @@ import axios from "axios"
 import { useEffect, useState } from "react"
 import { useDispatch, useSelector } from "react-redux"
 import {URL} from '../../../../Url/Url'
-import { ReloadData, hiddenloading, showloading } from "../../../../API/Server/rootSlice"
+import { ReloadData, hiddenloading, showloading, setVideoBannerData } from "../../../../API/Server/rootSlice"
 
 const AdminVideoManagement = () => {
 
@@ -13,6 +13,16 @@ const AdminVideoManagement = () => {
     const [isUpdatingVideo, setIsUpdatingVideo] = useState(false)
     const token = localStorage.getItem('token')
     const dispatch = useDispatch()
+
+    // Function to fetch latest video data
+    const fetchVideoData = async () => {
+        try {
+            const response = await axios.get(`${URL}/api/NextStudio/video-banner`)
+            dispatch(setVideoBannerData(response.data.video))
+        } catch (error) {
+            console.error('Error fetching video data:', error)
+        }
+    }
     
     useEffect(() => {
         if (videoBannerData) {
@@ -58,7 +68,8 @@ const AdminVideoManagement = () => {
                 if(data.success === true){
                     setBannerVideo('');
                     message.success('Video Updated Successfully')
-                    dispatch(ReloadData(true))
+                    // Fetch latest data
+                    await fetchVideoData()
                 }
                 
         }catch(err){
