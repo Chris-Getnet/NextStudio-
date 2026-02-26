@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-unused-vars */
-import { Form, message, Modal } from "antd";
+import { Form, message, Modal, Spin } from "antd";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -19,6 +19,8 @@ const AdminTeamManagement = () => {
     const [work_title,setWorkTitle] = useState('')
     const [team_image,setTeamImage] = useState('')
     const [preview,setPreview] = useState(null)
+    const [isSubmittingTeam, setIsSubmittingTeam] = useState(false)
+    const [isDeletingTeam, setIsDeletingTeam] = useState(false)
     const dispatch = useDispatch()
 
     
@@ -41,45 +43,53 @@ const AdminTeamManagement = () => {
     }
 
     const handleDelete = async (id) => {
+        if (!id) return
+        
+        setIsDeletingTeam(true)
         try{
             const config = {
                 headers: {
                   Authorization: `Bearer ${token}`,
                 },
             }
-            dispatch(showloading())
             const data = await axios.delete(`${URL}/api/NextStudio/team/${id}`,config)
-            dispatch(hiddenloading())
             if(data.data.success === true){
-                message.success('Team Deleted Successfuly')
-                dispatch(hiddenloading())
+                message.success('Team Deleted Successfully')
                 dispatch(ReloadData(true))
+                // Close modal only after successful deletion
+                setShowDeleteModal(false)
+                setDeleteId(null)
             }
         }catch(err){
-            message.error(err.message)
+            message.error(err.response?.data?.message || err.message || 'Failed to delete team member')
+        } finally {
+            setIsDeletingTeam(false)
         }
     }
 
     const submitForm = async (e) => {
         e.preventDefault();
+        
+        if(!full_name || !work_title || !team_image){
+            message.error('Please Enter Full Name, Work Title & Image')
+            return
+        }
+        
+        setIsSubmittingTeam(true)
         try{
             const config = {
                 headers: {
                   Authorization: `Bearer ${token}`,
                 },
             }
-
-            if(!full_name || !work_title || !team_image){
-                message.error('Please Enter Full Name, Work Title & Image')
-            }else{
             
             if(selectedItemforEdit){
                 const teamId = selectedItemforEdit._id || selectedItemforEdit.id
                 if (!teamId) {
                     message.error('Team member ID is missing')
+                    setIsSubmittingTeam(false)
                     return
                 }
-                dispatch(showloading())
                 const {data} = await axios.patch(`${URL}/api/NextStudio/team/${teamId}`,{full_name,work_title,team_image},config)
                 if(data.success === true){
                     setShowAddEditModal(false)
@@ -87,31 +97,28 @@ const AdminTeamManagement = () => {
                     setWorkTitle('');
                     setTeamImage('');
                     setPreview(null)
+                    setSelectedItemforEdit(null)
+                    message.success('Team updated successfully')
                     dispatch(ReloadData(true))
-                    dispatch(hiddenloading())
-                    message.success('team updated successfully')
                 }
             }
             else{
-                dispatch(showloading())
                 const {data} = await axios.post(`${URL}/api/NextStudio/team`,{full_name,work_title,team_image},config)
                 
                 if(data.success === true){
-                    
                     setShowAddEditModal(false)
                     setFullName('');
                     setWorkTitle('');
                     setTeamImage('');
                     setPreview(null)
+                    message.success('Team created successfully')
                     dispatch(ReloadData(true))
-                    dispatch(hiddenloading())
-                    message.success('team created successfully')
                 }
             }
-            }
         }catch(err){
-            dispatch(hiddenloading())
-            message.error(err.message)
+            message.error(err.response?.data?.message || err.message || 'Failed to save team member')
+        } finally {
+            setIsSubmittingTeam(false)
         }
     }
 
@@ -179,17 +186,59 @@ const AdminTeamManagement = () => {
                     })}
                 </div>
             </div>
-            <Modal visible={showDeleteModal} footer={null} closable={false} centered={true} onCancel={() => {setShowDeleteModal(false); setDeleteId(null)}}>
+            <Modal 
+                visible={showDeleteModal} 
+                footer={null} 
+                closable={!isDeletingTeam} 
+                centered={true} 
+                onCancel={() => {
+                    if (!isDeletingTeam) {
+                        setShowDeleteModal(false)
+                        setDeleteId(null)
+                    }
+                }}
+            >
                     <h1 className="text-center text-2xl">Are you sure want to delete?</h1>
                     <div className="flex justify-center items-center gap-5 mt-5">
-                        <button className="bg-primary w-[80px] p-1 rounded text-white" onClick={() => {handleDelete(deleteID); setShowDeleteModal(false)}}>Ok</button>
-                        <button className="bg-red-500 w-[80px] p-1 rounded text-white" onClick={() => {
-                            setShowDeleteModal(false) 
-                            setDeleteId(null)
-                        }}>Cancel</button>
+                        <button 
+                            className="bg-Secondary w-[80px] p-1 rounded text-white flex items-center justify-center gap-2" 
+                            onClick={() => handleDelete(deleteID)}
+                            disabled={isDeletingTeam}
+                        >
+                            {isDeletingTeam ? (
+                                <>
+                                    <Spin size="small" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                'Ok'
+                            )}
+                        </button>
+                        <button 
+                            className="bg-red-500 w-[80px] p-1 rounded text-white" 
+                            onClick={() => {
+                                if (!isDeletingTeam) {
+                                    setShowDeleteModal(false) 
+                                    setDeleteId(null)
+                                }
+                            }}
+                            disabled={isDeletingTeam}
+                        >
+                            Cancel
+                        </button>
                     </div>
             </Modal>
-            <Modal visible={showAddEditModal}  footer={null} onCancel={() => {setShowAddEditModal(false); setSelectedItemforEdit(null)}}>
+            <Modal 
+                visible={showAddEditModal}  
+                footer={null} 
+                closable={!isSubmittingTeam}
+                onCancel={() => {
+                    if (!isSubmittingTeam) {
+                        setShowAddEditModal(false)
+                        setSelectedItemforEdit(null)
+                    }
+                }}
+            >
                 <div>
                 <h1 className="text-center text-xl uppercase font-semibold mt-5 mb-5">{selectedItemforEdit ? 'Edit Team' : 'Add Team'}</h1>
                 <hr/>
@@ -214,7 +263,20 @@ const AdminTeamManagement = () => {
                     </div>
                     
                     <div className="flex justify-end gap-5 w-full">
-                        <button type="submit" className="bg-Secondary text-white w-[150px] px-5 py-1 rounded">{selectedItemforEdit ? 'Update Team' : 'Add Team'}</button>
+                        <button 
+                            type="submit" 
+                            className="bg-Secondary text-white w-[150px] px-5 py-1 rounded flex items-center justify-center gap-2" 
+                            disabled={isSubmittingTeam}
+                        >
+                            {isSubmittingTeam ? (
+                                <>
+                                    <Spin size="small" />
+                                    {selectedItemforEdit ? 'Updating...' : 'Adding...'}
+                                </>
+                            ) : (
+                                selectedItemforEdit ? 'Update Team' : 'Add Team'
+                            )}
+                        </button>
                     </div>
                 </form>
                 </div>

@@ -1,6 +1,6 @@
 import axios from "axios"
-import { ReloadData, hiddenloading, showloading } from "../../../../API/Server/rootSlice"
-import { Modal, message } from "antd"
+import { ReloadData, hiddenloading, showloading, setClientData } from "../../../../API/Server/rootSlice"
+import { Modal, message, Spin } from "antd"
 import { useDispatch, useSelector } from "react-redux"
 import { useState } from "react"
 import {URL} from '../../../../Url/Url'
@@ -13,6 +13,8 @@ const AdminClientManagement = () => {
     const [deleteID,setDeleteId] = useState(null)
     const [client_image,setClientImage] = useState(null)
     const [preview,setPreview] = useState(null)
+    const [isAddingClient, setIsAddingClient] = useState(false)
+    const [isDeletingClient, setIsDeletingClient] = useState(false)
     const dispatch = useDispatch()
 
     const { clientData } = useSelector((state) => state.root)
@@ -36,50 +38,71 @@ const AdminClientManagement = () => {
         }
     }
 
-    const handleDelete = async (id) => {
-        try{
-            const config = {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-            }
-            dispatch(showloading())
-            const data = await axios.delete(`${URL}/api/NextStudio/client/${id}`,config)
-            dispatch(hiddenloading())
-            if(data.data.success === true){
-                message.success('Client Deleted Successfuly')
-                dispatch(hiddenloading())
-                dispatch(ReloadData(true))
-            }
-        }catch(err){
-            message.error(err.message)
+    // Function to fetch latest client data
+    const fetchClientData = async () => {
+        try {
+            const response = await axios.get(`${URL}/api/NextStudio/client`)
+            dispatch(setClientData(response.data.client))
+        } catch (error) {
+            console.error('Error fetching client data:', error)
         }
     }
 
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleDelete = async (id) => {
+        if (!id) return
+        
+        setIsDeletingClient(true)
         try{
             const config = {
                 headers: {
                   Authorization: `Bearer ${token}`,
                 },
             }
-            dispatch(showloading())
+            const data = await axios.delete(`${URL}/api/NextStudio/client/${id}`,config)
+            if(data.data.success === true){
+                message.success('Client Deleted Successfully')
+                // Fetch latest client data after successful deletion
+                await fetchClientData()
+                // Close modal only after successful deletion
+                setShowDeleteModal(false)
+                setDeleteId(null)
+            }
+        }catch(err){
+            message.error(err.response?.data?.message || err.message || 'Failed to delete client')
+        } finally {
+            setIsDeletingClient(false)
+        }
+    }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!client_image) {
+            message.error('Please select an image')
+            return
+        }
+        
+        setIsAddingClient(true)
+        try{
+            const config = {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+            }
             const {data} = await axios.post(`${URL}/api/NextStudio/client`,{client_image},config)
                 
                 if(data.success === true){
-                    dispatch(showloading())
                     setShowAddEditModal(false)
                     setClientImage('');
                     setPreview(null)
-                    dispatch(ReloadData(true))
-                    dispatch(hiddenloading())
                     message.success('Client created successfully')
+                    // Fetch latest client data after successful addition
+                    await fetchClientData()
                 }
                 
         }catch(err){
-                    message.error(err.message)
+            message.error(err.response?.data?.message || err.message || 'Failed to add client')
+        } finally {
+            setIsAddingClient(false)
         }
     }
 
@@ -121,20 +144,65 @@ const AdminClientManagement = () => {
             <h1 className="text-center text-xl uppercase font-semibold mt-5 mb-5">Add Clients</h1>
                 <img className="w-full h-[250px] border-2 rounded object-cover " src={preview === null ? 'https://res.cloudinary.com/dtlrrlpag/image/upload/v1685707236/Next%20Studio/placeholder-image-gray-3x2_po4o0q.png' : preview} alt=""/>
                 <form onSubmit={handleSubmit}>
-                    <input className="cinput w-full" type="file" onChange={handleFileInputChange} />
+                    <input className="cinput w-full" type="file" onChange={handleFileInputChange} disabled={isAddingClient} />
                     <div className="flex justify-end mt-3 gap-5 w-full">
-                        <button type="submit" className="bg-Secondary text-white w-[150px] px-5 py-1 rounded">Add Client</button>
+                        <button 
+                            type="submit" 
+                            className="bg-Secondary text-white w-[150px] px-5 py-1 rounded flex items-center justify-center gap-2" 
+                            disabled={isAddingClient}
+                        >
+                            {isAddingClient ? (
+                                <>
+                                    <Spin size="small" />
+                                    Adding...
+                                </>
+                            ) : (
+                                'Add Client'
+                            )}
+                        </button>
                     </div>
                 </form>
             </Modal>
-            <Modal visible={showDeleteModal} footer={null} closable={false} centered={true} onCancel={() => {setShowDeleteModal(false); setDeleteId(null)}}>
+            <Modal 
+                visible={showDeleteModal} 
+                footer={null} 
+                closable={!isDeletingClient} 
+                centered={true} 
+                onCancel={() => {
+                    if (!isDeletingClient) {
+                        setShowDeleteModal(false)
+                        setDeleteId(null)
+                    }
+                }}
+            >
                     <h1 className="text-center text-2xl">Are you sure want to delete?</h1>
                     <div className="flex justify-center items-center gap-5 mt-5">
-                        <button className="bg-primary w-[80px] p-1 rounded text-white" onClick={() => {handleDelete(deleteID); setShowDeleteModal(false)}}>Ok</button>
-                        <button className="bg-red-500 w-[80px] p-1 rounded text-white" onClick={() => {
-                            setShowDeleteModal(false) 
-                            setDeleteId(null)
-                        }}>Cancel</button>
+                        <button 
+                            className="bg-Secondary w-[80px] p-1 rounded text-white flex items-center justify-center gap-2" 
+                            onClick={() => handleDelete(deleteID)}
+                            disabled={isDeletingClient}
+                        >
+                            {isDeletingClient ? (
+                                <>
+                                    <Spin size="small" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                'Ok'
+                            )}
+                        </button>
+                        <button 
+                            className="bg-red-500 w-[80px] p-1 rounded text-white" 
+                            onClick={() => {
+                                if (!isDeletingClient) {
+                                    setShowDeleteModal(false) 
+                                    setDeleteId(null)
+                                }
+                            }}
+                            disabled={isDeletingClient}
+                        >
+                            Cancel
+                        </button>
                     </div>
             </Modal>
         </div>

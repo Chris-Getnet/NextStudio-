@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from "react-redux"
 import { FaTrash, FaPlus } from "react-icons/fa";
 import JoditEditor from "jodit-react";
 import { ReloadData, hiddenloading, showloading, setPortfolioData, setPortfolioPagination } from "../../../API/Server/rootSlice";
-import { Modal, message } from "antd";
+import { Modal, message, Spin } from "antd";
 import { URL } from "../../../Url/Url";
 import Pagination from "./Pagination";
 import { useLocation } from "react-router-dom";
@@ -113,6 +113,9 @@ const AdminPortfolioManagement = () => {
     const [project_image,setProjectImage] = useState([])
     const [preview, setPreview] = useState([])
     const [newPreview,setNewPreview] = useState([])
+    const [isSubmittingPortfolio, setIsSubmittingPortfolio] = useState(false)
+    const [isDeletingPortfolio, setIsDeletingPortfolio] = useState(false)
+    const [isAddingImage, setIsAddingImage] = useState(false)
     const token = localStorage.getItem('token')
     const editor = useRef(null); 
 
@@ -148,25 +151,25 @@ const AdminPortfolioManagement = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsSubmittingPortfolio(true)
         try{
             const config = {
                 headers: {
                   Authorization: `Bearer ${token}`,
                 },
             }
-            dispatch(showloading())
             // Filter out empty video URLs
             const filteredVideos = project_videos.filter(video => video.trim() !== '')
             if(selectedItemforEdit){
                 const portfolioId = selectedItemforEdit._id || selectedItemforEdit.id
                 if (!portfolioId) {
                     message.error('Portfolio ID is missing')
+                    setIsSubmittingPortfolio(false)
                     return
                 }
                 const {data} = await axios.patch(`${URL}/api/NextStudio/portfolio/${portfolioId}`,{
                     project_name,project_category,project_description1,project_date,project_image,project_video: filteredVideos,company_name
                 },config)
-                dispatch(hiddenloading())
                 if(data.success === true){
                     setShowAddEditModal(false)
                     setCompanyName('')
@@ -177,15 +180,13 @@ const AdminPortfolioManagement = () => {
                     setProjectName('')
                     setProjectVideos([''])
                     setPreview([])
-                    message.success('Portfolio Added Successfuly')
-                    dispatch(hiddenloading())
+                    message.success('Portfolio Updated Successfully')
                     dispatch(ReloadData(true))
                 }
             }else{
                 const {data} = await axios.post(`${URL}/api/NextStudio/portfolio`,{
                     project_name,project_category,project_description1,project_date,project_image,project_video: filteredVideos,company_name
                 },config)
-                dispatch(hiddenloading())
                 if(data.success === true){
                     setShowAddEditModal(false)
                     setCompanyName('')
@@ -196,14 +197,14 @@ const AdminPortfolioManagement = () => {
                     setProjectName('')
                     setProjectVideos([''])
                     setPreview([])
-                    message.success('Portfolio Added Successfuly')
-                    dispatch(hiddenloading())
+                    message.success('Portfolio Added Successfully')
                     dispatch(ReloadData(true))
                 }
             }
         }catch(err){
-            dispatch(hiddenloading())
-            message.error(err.response.data.messages)
+            message.error(err.response?.data?.messages || err.message || 'Failed to save portfolio')
+        } finally {
+            setIsSubmittingPortfolio(false)
         }
     }
 
@@ -274,57 +275,60 @@ const AdminPortfolioManagement = () => {
 
     const handleNewImages = async (e) => {
         e.preventDefault();
+        setIsAddingImage(true)
         try{
             const config = {
                 headers: {
                   Authorization: `Bearer ${token}`,
                 },
             }
-            dispatch(showloading())
             if(selectedItemforEdit){
                 const portfolioId = selectedItemforEdit._id || selectedItemforEdit.id
                 if (!portfolioId) {
                     message.error('Portfolio ID is missing')
-                    dispatch(hiddenloading())
+                    setIsAddingImage(false)
                     return
                 }
                 const {data} = await axios.patch(`${URL}/api/NextStudio/portfolio/image/${portfolioId}`,{
                     project_image
                 },config)
-                dispatch(hiddenloading())
                 if(data.success === true){
-                    setShowAddEditModal(false)  
                     setProjectImage([])
                     setNewPreview([])
-                    message.success('Portfolio Image Added Successfuly')
-                    dispatch(hiddenloading())
+                    message.success('Portfolio Image Added Successfully')
                     dispatch(ReloadData(true))
                 }
             }
         }catch(err){
-            dispatch(hiddenloading())
-            message.error(err.response.data.messages)
+            message.error(err.response?.data?.messages || err.message || 'Failed to add image')
+        } finally {
+            setIsAddingImage(false)
         }
     }
 
 
     const handleDelete = async (id) => {
+        if (!id) return
+        
+        setIsDeletingPortfolio(true)
         try{
             const config = {
                 headers: {
                   Authorization: `Bearer ${token}`,
                 },
             }
-            dispatch(showloading())
             const data = await axios.delete(`${URL}/api/NextStudio/portfolio/${id}`,config)
-            dispatch(hiddenloading())
-            if(data.data.success === true)
-                message.success('Portfolio Delete Successfuly')
-                dispatch(hiddenloading())
+            if(data.data.success === true){
+                message.success('Portfolio Deleted Successfully')
                 dispatch(ReloadData(true))
-
+                // Close modal only after successful deletion
+                setShowDeleteModal(false)
+                setDeleteId(null)
+            }
         }catch(err){
-            message.error(err.message)
+            message.error(err.response?.data?.message || err.message || 'Failed to delete portfolio')
+        } finally {
+            setIsDeletingPortfolio(false)
         }
     }
 
@@ -381,9 +385,14 @@ const AdminPortfolioManagement = () => {
             <Modal 
                 open={showAddEditModal}  
                 footer={null} 
-                maskClosable={false}
-                keyboard={false}
-                onCancel={() => {setShowAddEditModal(false); setSelectedItemforEdit(null)}}
+                maskClosable={!isSubmittingPortfolio && !isAddingImage}
+                keyboard={!isSubmittingPortfolio && !isAddingImage}
+                onCancel={() => {
+                    if (!isSubmittingPortfolio && !isAddingImage) {
+                        setShowAddEditModal(false)
+                        setSelectedItemforEdit(null)
+                    }
+                }}
             >
                 <h1 className="text-center text-xl uppercase font-semibold mt-5">{selectedItemforEdit ? 'Update Work' : 'Add Work'}</h1>
                 <form onSubmit={handleSubmit}>
@@ -453,7 +462,20 @@ const AdminPortfolioManagement = () => {
                 <label className={selectedItemforEdit ? 'hidden' :'font-bold mt-5 mb-3'}>Project Images</label>
                 <input className={selectedItemforEdit ? 'hidden' :'cinput w-full'} type="file" multiple onChange={handleImageChange}/>
                 <div className="flex justify-end mt-3 gap-5 w-full">
-                        <button type="submit" className="bg-Secondary text-white w-[150px] px-5 py-1 rounded">{selectedItemforEdit ? 'Update Content' : 'Add'}</button>
+                        <button 
+                            type="submit" 
+                            className="bg-Secondary text-white w-[150px] px-5 py-1 rounded flex items-center justify-center gap-2" 
+                            disabled={isSubmittingPortfolio}
+                        >
+                            {isSubmittingPortfolio ? (
+                                <>
+                                    <Spin size="small" />
+                                    {selectedItemforEdit ? 'Updating...' : 'Adding...'}
+                                </>
+                            ) : (
+                                selectedItemforEdit ? 'Update Content' : 'Add'
+                            )}
+                        </button>
                 </div>
                 </div>
             </form>
@@ -479,19 +501,64 @@ const AdminPortfolioManagement = () => {
                     <label className='font-bold mt-10 mb-3'>Project Images</label>
                     <input className='cinput w-full' type="file" multiple onChange={selectedItemforEdit ? handleNewImageInput : handleImageChange}/>
                     <div className="flex justify-end mt-3 gap-5 w-full">
-                        <button type="submit" className="bg-Secondary text-white w-[150px] px-5 py-1 rounded">Add Image</button>
+                        <button 
+                            type="submit" 
+                            className="bg-Secondary text-white w-[150px] px-5 py-1 rounded flex items-center justify-center gap-2" 
+                            disabled={isAddingImage}
+                        >
+                            {isAddingImage ? (
+                                <>
+                                    <Spin size="small" />
+                                    Adding...
+                                </>
+                            ) : (
+                                'Add Image'
+                            )}
+                        </button>
                     </div>
                 </form>
             </div>    
             </Modal>
-            <Modal open={showDeleteModal} footer={null} closable={false} centered={true} onCancel={() => {setShowDeleteModal(false); setDeleteId(null)}}>
+            <Modal 
+                open={showDeleteModal} 
+                footer={null} 
+                closable={!isDeletingPortfolio} 
+                centered={true} 
+                onCancel={() => {
+                    if (!isDeletingPortfolio) {
+                        setShowDeleteModal(false)
+                        setDeleteId(null)
+                    }
+                }}
+            >
                     <h1 className="text-center text-2xl">Are you sure want to delete?</h1>
                     <div className="flex justify-center items-center gap-5 mt-5">
-                        <button className="bg-Secondary w-[80px] p-1 rounded text-white" onClick={() => {handleDelete(deleteID); setShowDeleteModal(false)}}>Ok</button>
-                        <button className="bg-red-500 w-[80px] p-1 rounded text-white" onClick={() => {
-                            setShowDeleteModal(false) 
-                            setDeleteId(null)
-                        }}>Cancel</button>
+                        <button 
+                            className="bg-Secondary w-[80px] p-1 rounded text-white flex items-center justify-center gap-2" 
+                            onClick={() => handleDelete(deleteID)}
+                            disabled={isDeletingPortfolio}
+                        >
+                            {isDeletingPortfolio ? (
+                                <>
+                                    <Spin size="small" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                'Ok'
+                            )}
+                        </button>
+                        <button 
+                            className="bg-red-500 w-[80px] p-1 rounded text-white" 
+                            onClick={() => {
+                                if (!isDeletingPortfolio) {
+                                    setShowDeleteModal(false) 
+                                    setDeleteId(null)
+                                }
+                            }}
+                            disabled={isDeletingPortfolio}
+                        >
+                            Cancel
+                        </button>
                     </div>
             </Modal>
         </div>

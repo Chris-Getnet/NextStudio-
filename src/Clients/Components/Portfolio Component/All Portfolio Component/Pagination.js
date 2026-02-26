@@ -3,9 +3,13 @@ import axios from 'axios';
 import {Link} from 'react-router-dom';
 import { ReloadData, hiddenloading, setPortfolioData, showloading } from '../../../../API/Server/rootSlice';
 import { useDispatch, useSelector } from 'react-redux';
-import { useEffect } from 'react';
+import { forwardRef, useEffect } from 'react';
 import useStyles from './styles';
 import { URL } from '../../../../Url/Url';
+
+const PaginationLink = forwardRef(function PaginationLink(props, ref) {
+    return <Link ref={ref} {...props} />;
+});
 
 const Paginate = ({page}) => {
 
@@ -44,7 +48,12 @@ const Paginate = ({page}) => {
             variant="outlined"
             color="primary"
             renderItem = {(item) => (
-                <PaginationItem {...item} component={Link} to={`/portfolios?page=${item.page}`}/>
+                <PaginationItem
+                    {...item}
+                    component={PaginationLink}
+                    to={`/portfolios?page=${item.page}`}
+                    disableRipple
+                />
             )}
         />
     )
