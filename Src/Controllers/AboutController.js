@@ -56,29 +56,51 @@ exports.updateAbout = async(req,res,next) => {
         }
 
         if (req.body.intro_image && req.body.intro_image !== '') {
-            if (!currentAbout.intro_image || req.body.intro_image.public_id !== currentAbout.intro_image.public_id){
-
-                const ImgId = currentAbout.intro_image?.public_id;
-
-                if (ImgId) {
-                    await cloudinary.uploader.destroy(ImgId);
+            // Check if intro_image is already an object (already uploaded) or a string (needs upload)
+            const isImageObject = typeof req.body.intro_image === 'object' && 
+                                  req.body.intro_image !== null &&
+                                  req.body.intro_image.public_id && 
+                                  req.body.intro_image.url;
+            
+            // Get current image public_id from database (stored as separate columns)
+            const currentImagePublicId = currentAbout.intro_image_public_id || currentAbout.intro_image?.public_id;
+            const currentImageUrl = currentAbout.intro_image_url || currentAbout.intro_image?.url;
+            
+            if (isImageObject) {
+                // Image is already uploaded (object with public_id and url)
+                const incomingImagePublicId = req.body.intro_image.public_id;
+                
+                if (!currentImagePublicId || incomingImagePublicId !== currentImagePublicId) {
+                    // Different image - delete old one if it exists, then use the new one
+                    if (currentImagePublicId) {
+                        await cloudinary.uploader.destroy(currentImagePublicId);
+                    }
+                    data.intro_image = {
+                        public_id: req.body.intro_image.public_id,
+                        url: req.body.intro_image.url
+                    }
+                } else {
+                    // Same image, keep current one
+                    data.intro_image = {
+                        public_id: currentImagePublicId,
+                        url: currentImageUrl
+                    }
                 }
-
+            } else {
+                // Image is a string (base64, file path, or URL), upload it
+                // Delete old image if it exists
+                if (currentImagePublicId) {
+                    await cloudinary.uploader.destroy(currentImagePublicId);
+                }
+                
                 const newImage = await cloudinary.uploader.upload(req.body.intro_image, {
                     upload_preset: "NextAbout",
-
                 });
                 data.intro_image = {
                     public_id: newImage.public_id,
                     url: newImage.secure_url
                 }
-             }
-             else{
-                data.intro_image = {
-                    public_id: currentAbout.intro_image.public_id,
-                    url: currentAbout.intro_image.url
-                }
-             }
+            }
 
         }
         const updateAbout = await About.update("262ad622-589f-4cb5-886a-6df5982b183e", data)
