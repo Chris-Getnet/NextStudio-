@@ -50,15 +50,24 @@ exports.deleteClient = async (req, res, next) => {
 
     try {
         const client = await Client.findById(req.params.id);
-        //retrieve current image ID
-        const imgId = client.client_image.public_id;
+        
+        if (!client) {
+            return res.status(404).json({
+                success: false,
+                message: "Client not found"
+            });
+        }
+        
+        // Retrieve current image ID from database columns (stored as separate fields)
+        const imgId = client.client_image_public_id || client.client_image?.public_id;
+        
         if (imgId) {
             await cloudinary.uploader.destroy(imgId);
         }
 
         await Client.delete(req.params.id);
 
-        res.status(201).json({
+        res.status(200).json({
             success: true,
             message: "Client Deleted",
 

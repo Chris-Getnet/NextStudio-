@@ -24,9 +24,6 @@ router
 router
     .route('/image/:id')
     .patch(protect,portfolioController.addPortfolioImages)
-    
-router
-    .route('/:id/:id1')
     .delete(protect,portfolioController.deletePortfolioImage)
 
 
