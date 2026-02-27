@@ -1,17 +1,28 @@
-import { message } from "antd"
+import { message, Spin } from "antd"
 import axios from "axios"
 import { useEffect, useState } from "react"
 import { useDispatch, useSelector } from "react-redux"
 import {URL} from '../../../../Url/Url'
-import { ReloadData, hiddenloading, showloading } from "../../../../API/Server/rootSlice"
+import { ReloadData, hiddenloading, showloading, setVideoBannerData } from "../../../../API/Server/rootSlice"
 
 const AdminVideoManagement = () => {
 
     const { videoBannerData } = useSelector((state) => state.root)
 
     const [banner_video,setBannerVideo] = useState('')
+    const [isUpdatingVideo, setIsUpdatingVideo] = useState(false)
     const token = localStorage.getItem('token')
     const dispatch = useDispatch()
+
+    // Function to fetch latest video data
+    const fetchVideoData = async () => {
+        try {
+            const response = await axios.get(`${URL}/api/NextStudio/video-banner`)
+            dispatch(setVideoBannerData(response.data.video))
+        } catch (error) {
+            console.error('Error fetching video data:', error)
+        }
+    }
     
     useEffect(() => {
         if (videoBannerData) {
@@ -45,25 +56,26 @@ const AdminVideoManagement = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        setIsUpdatingVideo(true)
         try{
             const config = {
                 headers: {
                   Authorization: `Bearer ${token}`,
                 },
             }
-            dispatch(showloading())
             const {data} = await axios.patch(`${URL}/api/NextStudio/video-banner/`,{banner_video},config)
                 
                 if(data.success === true){
-                    dispatch(showloading())
                     setBannerVideo('');
-                    dispatch(ReloadData(true))
-                    dispatch(hiddenloading())
                     message.success('Video Updated Successfully')
+                    // Fetch latest data
+                    await fetchVideoData()
                 }
                 
         }catch(err){
-                    message.error(err.message)
+            message.error(err.response?.data?.message || err.message || 'Failed to update video')
+        } finally {
+            setIsUpdatingVideo(false)
         }
     }
 
@@ -82,9 +94,28 @@ const AdminVideoManagement = () => {
             )}
             <form onSubmit={handleSubmit}>
                 <div className="mt-3">
-                    <input type="file" className="cinput w-full" accept="image/mp4" onChange={handleFileInputChange}/>
+                    <input 
+                        type="file" 
+                        className="cinput w-full" 
+                        accept="image/mp4" 
+                        onChange={handleFileInputChange}
+                        disabled={isUpdatingVideo}
+                    />
                     <div className="flex mt-5 justify-end w-full">
-                        <button type="submit" className="bg-Secondary text-white w-[100px] py-2 px-5 rounded">Update</button>
+                        <button 
+                            type="submit" 
+                            className="bg-Secondary text-white w-[100px] py-2 px-5 rounded flex items-center justify-center gap-2" 
+                            disabled={isUpdatingVideo}
+                        >
+                            {isUpdatingVideo ? (
+                                <>
+                                    <Spin size="small" />
+                                    Updating...
+                                </>
+                            ) : (
+                                'Update'
+                            )}
+                        </button>
                     </div>
                 </div>
             </form>

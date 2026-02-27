@@ -1,8 +1,8 @@
 import axios from "axios"
 import { useEffect, useRef, useState } from "react"
 import { useDispatch, useSelector } from "react-redux"
-import { ReloadData, hiddenloading, showloading } from "../../../../API/Server/rootSlice"
-import { Modal, message } from "antd"
+import { ReloadData, hiddenloading, showloading, setServiceData } from "../../../../API/Server/rootSlice"
+import { Modal, message, Spin } from "antd"
 import JoditEditor from "jodit-react";
 import {URL} from '../../../../Url/Url'
 
@@ -16,9 +16,20 @@ const AdminServiceManagement = () => {
     const [service_description,setServiceDescription] = useState('')
     const [service_icon,setServiceIcon] = useState(null)
     const [preview,setPreview] = useState(null)
+    const [isUpdatingService, setIsUpdatingService] = useState(false)
     const editor = useRef(null);
     const token = localStorage.getItem('token')
     const dispatch = useDispatch()
+
+    // Function to fetch latest service data
+    const fetchServiceData = async () => {
+        try {
+            const response = await axios.get(`${URL}/api/NextStudio/service`)
+            dispatch(setServiceData(response.data.service))
+        } catch (error) {
+            console.error('Error fetching service data:', error)
+        }
+    }
 
     const handleFileInputChange = (e) => {
         const file = e.target.files[0]
@@ -54,17 +65,16 @@ const AdminServiceManagement = () => {
             return
         }
         
+        setIsUpdatingService(true)
         try{
             const config = {
                 headers: {
                   Authorization: `Bearer ${token}`,
                 },
             }
-            dispatch(showloading())
             const {data} = await axios.patch(`${URL}/api/NextStudio/service/${serviceId}`,{
                 service_icon,service_title,service_description
             },config)
-            dispatch(hiddenloading())
             if(data.success === true){
                 setShowAddEditModal(false)
                 setServiceIcon(null)
@@ -72,13 +82,14 @@ const AdminServiceManagement = () => {
                 setServiceDescription("")
                 setPreview(null)
                 setSelectedItemforEdit(null)
-                message.success('Services Updated Successfuly')
-                dispatch(hiddenloading())
-                dispatch(ReloadData(true))
+                message.success('Service Updated Successfully')
+                // Fetch latest data
+                await fetchServiceData()
             }
         }catch(err){
-            dispatch(hiddenloading())
             message.error(err.response?.data?.message || err.message || 'Failed to update service')
+        } finally {
+            setIsUpdatingService(false)
         }
     } 
 
@@ -128,7 +139,17 @@ const AdminServiceManagement = () => {
                     })}
                 </div>
             </div>
-            <Modal open={showAddEditModal}  footer={null} onCancel={() => {setShowAddEditModal(false); setSelectedItemforEdit(null)}}>
+            <Modal 
+                open={showAddEditModal}  
+                footer={null} 
+                closable={!isUpdatingService}
+                onCancel={() => {
+                    if (!isUpdatingService) {
+                        setShowAddEditModal(false)
+                        setSelectedItemforEdit(null)
+                    }
+                }}
+            >
                 <h1 className="text-center text-xl uppercase font-semibold mt-5 mb-5">Edit Services</h1>
                 <div className="w-full h-[200px] flex justify-center items-center">
                 <img className=" h-[180px] object-cover border-2 rounded-md"  src={preview === null ? 'https://res.cloudinary.com/dtlrrlpag/image/upload/v1685707236/Next%20Studio/placeholder-image-gray-3x2_po4o0q.png' : preview}  alt=""/>
@@ -145,7 +166,20 @@ const AdminServiceManagement = () => {
                     onChange={newContent => setServiceDescription(newContent)}     
                     />
                     <div className="flex justify-end mt-3 gap-5 w-full">
-                        <button type="submit" className="bg-Secondary text-white w-[150px] px-5 py-1 rounded">Update</button>
+                        <button 
+                            type="submit" 
+                            className="bg-Secondary text-white w-[150px] px-5 py-1 rounded flex items-center justify-center gap-2" 
+                            disabled={isUpdatingService}
+                        >
+                            {isUpdatingService ? (
+                                <>
+                                    <Spin size="small" />
+                                    Updating...
+                                </>
+                            ) : (
+                                'Update'
+                            )}
+                        </button>
                     </div>
                 </form>
             </Modal>
