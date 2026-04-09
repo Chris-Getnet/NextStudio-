@@ -9,6 +9,45 @@ import { URL } from "../../../Url/Url";
 import Pagination from "./Pagination";
 import { useLocation } from "react-router-dom";
 
+// Utility function to extract YouTube video ID from various URL formats
+const extractYouTubeVideoId = (url) => {
+    if (!url || typeof url !== 'string') return null;
+    
+    // Remove whitespace
+    url = url.trim();
+    if (!url) return null;
+    
+    // Handle embed URLs: https://www.youtube.com/embed/VIDEO_ID
+    const embedMatch = url.match(/youtube\.com\/embed\/([^&\s?#]+)/);
+    if (embedMatch) return embedMatch[1];
+    
+    // Handle watch URLs: https://www.youtube.com/watch?v=VIDEO_ID
+    const watchMatch = url.match(/youtube\.com\/watch\?v=([^&\s?#]+)/);
+    if (watchMatch) return watchMatch[1];
+    
+    // Handle short URLs: https://youtu.be/VIDEO_ID
+    const shortMatch = url.match(/youtu\.be\/([^&\s?#]+)/);
+    if (shortMatch) return shortMatch[1];
+    
+    // Handle mobile URLs: https://m.youtube.com/watch?v=VIDEO_ID
+    const mobileMatch = url.match(/m\.youtube\.com\/watch\?v=([^&\s?#]+)/);
+    if (mobileMatch) return mobileMatch[1];
+    
+    // Handle youtube.com/VIDEO_ID format (less common)
+    const directMatch = url.match(/youtube\.com\/([^\/&\s?#]+)(?:\?|$)/);
+    if (directMatch && !directMatch[1].includes('watch') && !directMatch[1].includes('embed')) {
+        return directMatch[1];
+    }
+    
+    return null;
+};
+
+// Function to generate YouTube embed URL
+const getYouTubeEmbedUrl = (videoId) => {
+    if (!videoId) return null;
+    return `https://www.youtube.com/embed/${videoId}`;
+};
+
 const AdminPortfolioManagement = () => {
 
     const { portfolioData, reloadData } = useSelector((state) => state.root)
@@ -169,13 +208,30 @@ const AdminPortfolioManagement = () => {
             const updatedPortfolio = portfolioData.find(p => 
                 (p._id || p.id) === portfolioId
             )
-            if (updatedPortfolio && updatedPortfolio.project_image) {
-                // Only update if the images have actually changed
-                const currentImageIds = preview.map(img => img.public_id || img._id || img.id).filter(Boolean)
-                const newImageIds = updatedPortfolio.project_image.map(img => img.public_id || img._id || img.id).filter(Boolean)
-                if (JSON.stringify(currentImageIds.sort()) !== JSON.stringify(newImageIds.sort())) {
-                    setPreview(updatedPortfolio.project_image)
-                    setProjectImage(updatedPortfolio.project_image)
+            if (updatedPortfolio) {
+                // Update images if they have changed
+                if (updatedPortfolio.project_image) {
+                    const currentImageIds = preview.map(img => img.public_id || img._id || img.id).filter(Boolean)
+                    const newImageIds = updatedPortfolio.project_image.map(img => img.public_id || img._id || img.id).filter(Boolean)
+                    if (JSON.stringify(currentImageIds.sort()) !== JSON.stringify(newImageIds.sort())) {
+                        setPreview(updatedPortfolio.project_image)
+                        setProjectImage(updatedPortfolio.project_image)
+                    }
+                }
+                // Update videos if they have changed
+                const videos = updatedPortfolio.project_videos || updatedPortfolio.project_video
+                if (videos) {
+                    const currentVideos = Array.isArray(project_videos) ? project_videos.filter(v => v.trim() !== '') : []
+                    const newVideos = Array.isArray(videos) ? videos : (videos ? [videos] : [])
+                    if (JSON.stringify(currentVideos.sort()) !== JSON.stringify(newVideos.sort())) {
+                        if (Array.isArray(videos) && videos.length > 0) {
+                            setProjectVideos(videos)
+                        } else if (videos && typeof videos === 'string') {
+                            setProjectVideos([videos])
+                        } else {
+                            setProjectVideos([''])
+                        }
+                    }
                 }
             }
         }
@@ -214,7 +270,7 @@ const AdminPortfolioManagement = () => {
                     return
                 }
                 const {data} = await axios.patch(`${URL}/api/NextStudio/portfolio/${portfolioId}`,{
-                    project_name,project_category,project_description1,project_date,project_image: imagesToSend,project_video: filteredVideos,company_name
+                    project_name,project_category,project_description1,project_date,project_image: imagesToSend,project_videos: filteredVideos,company_name
                 },config)
                 if(data.success === true){
                     setShowAddEditModal(false)
@@ -232,7 +288,7 @@ const AdminPortfolioManagement = () => {
                 }
             }else{
                 const {data} = await axios.post(`${URL}/api/NextStudio/portfolio`,{
-                    project_name,project_category,project_description1,project_date,project_image: imagesToSend,project_video: filteredVideos,company_name
+                    project_name,project_category,project_description1,project_date,project_image: imagesToSend,project_videos: filteredVideos,company_name
                 },config)
                 if(data.success === true){
                     setShowAddEditModal(false)
@@ -531,33 +587,55 @@ const AdminPortfolioManagement = () => {
                     </div>
                 </div>
                 <label className="font-bold mt-5">Project Youtube Links</label>
-                {project_videos.map((video, index) => (
-                    <div key={index} className="flex gap-2 mb-2">
-                        <input 
-                            className="cinput w-full" 
-                            type="url" 
-                            placeholder={`Video URL ${index + 1}`}
-                            onChange={(e) => {
-                                const newVideos = [...project_videos]
-                                newVideos[index] = e.target.value
-                                setProjectVideos(newVideos)
-                            }} 
-                            value={video}
-                        />
-                        {project_videos.length > 1 && (
-                            <button
-                                type="button"
-                                className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
-                                onClick={() => {
-                                    const newVideos = project_videos.filter((_, i) => i !== index)
-                                    setProjectVideos(newVideos.length > 0 ? newVideos : [''])
-                                }}
-                            >
-                                <FaTrash />
-                            </button>
-                        )}
-                    </div>
-                ))}
+                {project_videos.map((video, index) => {
+                    const videoId = extractYouTubeVideoId(video);
+                    const embedUrl = getYouTubeEmbedUrl(videoId);
+                    
+                    return (
+                        <div key={index} className="mb-4">
+                            <div className="flex gap-2 mb-2">
+                                <input 
+                                    className="cinput w-full" 
+                                    type="url" 
+                                    placeholder={`Video URL ${index + 1} (e.g., https://www.youtube.com/watch?v=VIDEO_ID)`}
+                                    onChange={(e) => {
+                                        const newVideos = [...project_videos]
+                                        newVideos[index] = e.target.value
+                                        setProjectVideos(newVideos)
+                                    }} 
+                                    value={video}
+                                />
+                                {project_videos.length > 1 && (
+                                    <button
+                                        type="button"
+                                        className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
+                                        onClick={() => {
+                                            const newVideos = project_videos.filter((_, i) => i !== index)
+                                            setProjectVideos(newVideos.length > 0 ? newVideos : [''])
+                                        }}
+                                    >
+                                        <FaTrash />
+                                    </button>
+                                )}
+                            </div>
+                            {embedUrl && (
+                                <div className="mt-2 mb-2">
+                                    <p className="text-sm text-gray-600 mb-1">Preview:</p>
+                                    <div className="relative w-full max-w-sm mx-auto" style={{ paddingBottom: '56.25%', height: 0 }}>
+                                        <iframe
+                                            className="absolute top-0 left-0 w-full h-[200px] rounded border"
+                                            src={embedUrl}
+                                            title={`YouTube video preview ${index + 1}`}
+                                            frameBorder="0"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allowFullScreen
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
                 <button
                     type="button"
                     className="bg-Secondary text-white px-4 py-2 rounded mt-2 flex items-center gap-2 hover:bg-opacity-90"

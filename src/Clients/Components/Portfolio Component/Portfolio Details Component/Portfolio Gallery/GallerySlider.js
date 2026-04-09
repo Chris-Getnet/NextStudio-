@@ -51,10 +51,10 @@ const GallerySlider = ({portfolioData}) => {
 
 
     return(
-        <div>
+        <div className="mt-10 w-full">
             <Slider {...settings}>
                 {portfolioData.project_image.slice(1,5).map((img,index) => (
-                    <div key={index}>
+                    <div key={index} className="flex justify-center">
                         <GalleryCard pic={img.url} width={width} height={height}/>
                     </div>
                 ))}
